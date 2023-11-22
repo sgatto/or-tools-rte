@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-22.04"]
+        os: ["ubuntu-20.04"]
         cmake: [
           {shared: OFF, java: OFF, dotnet: OFF, python: OFF, python-version: "3.8",  publish-cxx-or: ON},
           {shared: ON,  java: ON,  dotnet: ON,  python: OFF, python-version: "3.8",  publish-cxx-or: ON},
@@ -81,8 +81,8 @@ jobs:
           wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
           unzip $zipfile
           mv "${{ matrix.os }}_sirius-solver-install" "${{ env.SIRIUS_INSTALL_PATH }}"
-          LD_PATH="${{ env.SIRIUS_INSTALL_PATH }}/lib/"
-          echo "LD_LIBRARY_PATH=$LD_PATH" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${{ env.SIRIUS_INSTALL_DIR }}/lib" >> $GITHUB_ENV
+          echo "SIRIUS_CMAKE_DIR=${{ env.SIRIUS_INSTALL_DIR }}/cmake" >> $GITHUB_ENV
 
       - name: ccache
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
@@ -102,6 +102,8 @@ jobs:
           -DBUILD_DOTNET=${{ matrix.cmake.dotnet }}
           -DBUILD_EXAMPLES=ON
           -DBUILD_DEPS=ON
+          -DUSE_SIRIUS=${{ matrix.sirius }} \
+          -Dsirius_solver_DIR="${{ env.SIRIUS_CMAKE_DIR }}" \
           -DBUILD_SAMPLES=OFF
           -DCMAKE_INSTALL_PREFIX="build/install"
 

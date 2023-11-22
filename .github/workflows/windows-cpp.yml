@@ -48,11 +48,15 @@ jobs:
 
       - name: Download Sirius
         if: ${{ matrix.sirius == 'ON' }}
+        run: |
+          (New-Object System.Net.WebClient).DownloadFile("https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/${{ matrix.os }}_sirius-solver.zip","sirius-solver.zip");
+          Expand-Archive .\sirius-solver.zip .;
+          echo "$((Get-Item .).FullName)/swigwin-4.1.1" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Remove-Item .\sirius-solver.zip
+      - name: Install Sirius
+        if: ${{ matrix.sirius == 'ON' }}
         shell: bash
         run: |
-          zipfile=${{ matrix.os }}_sirius-solver.zip
-          wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
-          unzip $zipfile
           mv "${{ matrix.os }}_sirius-solver-install" "${{ env.SIRIUS_INSTALL_PATH }}"
           echo "${{ env.SIRIUS }}" >> $GITHUB_PATH
 

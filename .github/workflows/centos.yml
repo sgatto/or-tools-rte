@@ -18,18 +18,27 @@ env:
 jobs:
 
   build:
-    name: shrd=${{ matrix.shared }} extras=${{ matrix.extras }} java=${{ matrix.java }} dotnet=${{ matrix.dotnet }} python=${{ matrix.python }}-${{ matrix.python-version }}
+    name: shrd=${{ matrix.shared }} sirius=${{ matrix.sirius }} extras=${{ matrix.extras }} java=${{ matrix.java }} dotnet=${{ matrix.dotnet }} python=${{ matrix.python }}-${{ matrix.python-version }}
     runs-on: ubuntu-latest
     container: 'centos:centos7'
     env:
+      SIRIUS_RELEASE_TAG: antares-integration-v1.4
       XPRESS_INSTALL_DIR: xpressmp/
+      SIRIUS_INSTALL_DIR: sirius_install/
     strategy:
       fail-fast: false
       matrix:
+        sirius: [ON, OFF]
         shared: [ON, OFF]
         extras: [OFF]
         include:
           - extras: OFF
+            python: OFF
+            java: OFF
+            dotnet: OFF
+          - sirius: ON
+            shared: OFF
+            extras: OFF
             python: OFF
             java: OFF
             dotnet: OFF
@@ -40,9 +49,11 @@ jobs:
         run: |
           SHARED=${{ matrix.shared }}
           [ $SHARED == "ON" ] && WITH_SHARED="_shared" || WITH_SHARED="_static"
+          SIRIUS=${{ matrix.sirius }}
+          [ $SIRIUS == "ON" ] && WITH_SIRIUS="_sirius" || WITH_SIRIUS=""
           OS="_centos7"
-          APPENDIX="${OS}"
-          APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}"
+          APPENDIX="${OS}${WITH_SIRIUS}"
+          APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}${WITH_SIRIUS}"
           echo "appendix=$APPENDIX" >> $GITHUB_OUTPUT
           echo "appendix_with_shared=$APPENDIX_WITH_SHARED" >> $GITHUB_OUTPUT
 
@@ -77,6 +88,21 @@ jobs:
           echo "XPRESSDIR=$PWD" >> $GITHUB_ENV
           echo "XPAUTH_PATH=$PWD/bin/xpauth.xpr" >> $GITHUB_ENV
 
+      - name: Download Sirius
+        if : ${{ matrix.sirius == 'ON' }}
+        run: |
+          zipfile=centos-7_sirius-solver.zip
+          wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
+          unzip $zipfile
+          mv centos-7_sirius-solver-install ${{ env.SIRIUS_INSTALL_DIR }}
+
+      - name: set Sirius variables
+        if : ${{ matrix.sirius == 'ON' }}
+        run: |
+          cd ${{ env.SIRIUS_INSTALL_DIR }}
+          echo "SIRIUS=$PWD/lib" >> $GITHUB_ENV
+          echo "SIRIUS_CMAKE_DIR=$PWD/cmake" >> $GITHUB_ENV
+
       - name: Configure OR-Tools
         run: |
           source /opt/rh/devtoolset-9/enable
@@ -89,6 +115,8 @@ jobs:
             -DBUILD_DOTNET=${{ matrix.dotnet }} \
             -DBUILD_EXAMPLES=ON \
             -DBUILD_DEPS=ON \
+            -DUSE_SIRIUS=${{ matrix.sirius }} \
+            -Dsirius_solver_DIR="${{ env.SIRIUS_CMAKE_DIR }}" \
             -DCMAKE_INSTALL_PREFIX="build/install" \
             -DBUILD_SAMPLES=OFF \
             -DBUILD_FLATZINC=OFF
@@ -107,6 +135,11 @@ jobs:
         run: |
           cd build
           ctest -V -C Release --output-on-failure  -R "xpress"
+
+      - name: run tests sirius
+        run: |
+          cd build
+          ctest -V -C Release --output-on-failure  -R "sirius"
 
       - name: Prepare OR-Tools install
         id: or-install

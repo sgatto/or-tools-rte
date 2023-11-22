@@ -16,11 +16,14 @@ env:
 
 jobs:
   build:
-    name: ${{ matrix.os }} shrd=${{ matrix.cmake.shared }} java=${{ matrix.cmake.java }} dotnet=${{ matrix.cmake.dotnet }} python=${{ matrix.cmake.python }}-${{ matrix.cmake.python-version }}
+    name: ${{ matrix.os }} shrd=${{ matrix.cmake.shared }} sirius=${{ matrix.sirius }} java=${{ matrix.cmake.java }} dotnet=${{ matrix.cmake.dotnet }} python=${{ matrix.cmake.python }}-${{ matrix.cmake.python-version }}
     runs-on: ${{ matrix.os }}
     env:
       XPRESSDIR: ${{ github.workspace }}/xpressmp
       XPAUTH_PATH: ${{ github.workspace }}/xpressmp/bin/xpauth.xpr
+      SIRIUS_RELEASE_TAG: ${{ matrix.sirius-release-tag }}
+      SIRIUS_INSTALL_PATH: ${{ github.workspace }}/sirius_install
+      SIRIUS: ${{ github.workspace }}/sirius_install/bin
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +35,8 @@ jobs:
           {shared: ON,  java: OFF, dotnet: OFF, python: ON,  python-version: "3.9",  publish-cxx-or: OFF},
           {shared: ON,  java: OFF, dotnet: OFF, python: ON,  python-version: "3.10", publish-cxx-or: OFF},
         ]
-
+        sirius: [ON, OFF]
+        sirius-release-tag: [antares-integration-v1.4]
     steps:
       - name: Checkout or-tools
         uses: actions/checkout@v4
@@ -69,11 +73,22 @@ jobs:
           echo "Create symbolic link for XPRESS library file because it is missing in the Python installation"
           ln -s $XPRESS_DIR/lib/libxprs.so.41 $XPRESS_DIR/lib/libxprs.so
 
+      - name: Download Sirius
+        if: ${{ matrix.sirius == 'ON' }}
+        shell: bash
+        run: |
+          zipfile=${{ matrix.os }}_sirius-solver.zip
+          wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
+          unzip $zipfile
+          mv "${{ matrix.os }}_sirius-solver-install" "${{ env.SIRIUS_INSTALL_PATH }}"
+          LD_PATH="${{ env.SIRIUS_INSTALL_PATH }}/lib/"
+          echo "LD_LIBRARY_PATH=$LD_PATH" >> $GITHUB_ENV
+
       - name: ccache
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: ${{ matrix.os }}-${{ matrix.cmake.shared }}-${{ matrix.cmake.dotnet }}-${{ matrix.cmake.java }}-${{ matrix.cmake.python }}-${{ matrix.cmake.python-version }}
+          key: ${{ matrix.os }}-${{ matrix.cmake.shared }}-${{ matrix.sirius }}-${{ matrix.cmake.dotnet }}-${{ matrix.cmake.java }}-${{ matrix.cmake.python }}-${{ matrix.cmake.python-version }}
 
       - name: Check cmake
         run: cmake --version
@@ -114,16 +129,27 @@ jobs:
           --output-on-failure 
           -R "xpress"
 
+      - name: run tests sirius
+        working-directory: ./build/
+        run: >
+          ctest 
+          -V 
+          -C Release 
+          --output-on-failure 
+          -R "sirius"
+
       - name: set name variables
         id: names
         shell: bash
         run: |
           SHARED=${{ matrix.cmake.shared }}
           [ $SHARED == "ON" ] && WITH_SHARED="_shared" || WITH_SHARED="_static"
+          SIRIUS=${{ matrix.sirius }}
+          [ $SIRIUS == "ON" ] && WITH_SIRIUS="_sirius" || WITH_SIRIUS=""
           OS="_${{ matrix.os }}"
-          APPENDIX="${OS}"
+          APPENDIX="${OS}${WITH_SIRIUS}"
           echo "::set-output name=appendix::$APPENDIX"
-          APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}"
+          APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}${WITH_SIRIUS}"
           echo "::set-output name=appendix_with_shared::$APPENDIX_WITH_SHARED"
 
       - name: is release created

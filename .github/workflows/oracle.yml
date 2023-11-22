@@ -26,6 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        sirius: [ON, OFF]
         cmake: [
           { shared: OFF, java: OFF, dotnet: OFF, python: OFF},
           { shared: ON,  java: ON,  dotnet: OFF, python: ON},
@@ -36,10 +37,12 @@ jobs:
         run: |
           SHARED=${{ matrix.cmake.shared }}
           [ $SHARED == "ON" ] && WITH_SHARED="_shared" || WITH_SHARED="_static"
+          SIRIUS=${{ matrix.sirius }}
+          [ $SIRIUS == "ON" ] && WITH_SIRIUS="_sirius" || WITH_SIRIUS=""
           OS="_oraclelinux-8"
-          APPENDIX="${OS}"
+          APPENDIX="${OS}${WITH_SIRIUS}"
           echo "::set-output name=appendix::$APPENDIX"
-          APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}"
+          APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}${WITH_SIRIUS}"
           echo "::set-output name=appendix_with_shared::$APPENDIX_WITH_SHARED"
 
       # Fill variable ${BRANCH_NAME}
@@ -104,6 +107,21 @@ jobs:
           echo "XPAUTH_PATH=$XPRESS_DIR/license/community-xpauth.xpr" >> $GITHUB_ENV
           ln -s $XPRESS_DIR/lib/libxprs.so.41 $XPRESS_DIR/lib/libxprs.so
 
+      - name: Download Sirius
+        if: ${{ matrix.sirius == 'ON' }}
+        run: |
+          zipfile=oraclelinux-8_sirius-solver.zip
+          wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
+          unzip $zipfile
+          mv oraclelinux-8_sirius-solver-install ${{ env.SIRIUS_INSTALL_DIR }}
+
+      - name: set Sirius variables
+        if: ${{ matrix.sirius == 'ON' }}
+        run: |
+          cd ${{ env.SIRIUS_INSTALL_DIR }}
+          echo "SIRIUS=$PWD/lib" >> $GITHUB_ENV
+          echo "SIRIUS_CMAKE_DIR=$PWD/cmake" >> $GITHUB_ENV
+
       - name: Configure OR-Tools
         run: |
           source /opt/rh/gcc-toolset-11/enable
@@ -116,6 +134,8 @@ jobs:
             -DBUILD_DOTNET=${{ matrix.cmake.dotnet }} \
             -DBUILD_EXAMPLES=ON \
             -DBUILD_DEPS=ON \
+            -DUSE_SIRIUS=${{ matrix.sirius }} \
+            -Dsirius_solver_DIR="${{ env.SIRIUS_CMAKE_DIR }}" \
             -DCMAKE_INSTALL_PREFIX="build/install" \
             -DBUILD_SAMPLES=OFF \
             -DBUILD_FLATZINC=OFF
@@ -134,6 +154,12 @@ jobs:
         run: |
           cd build
           ctest -V -C Release --output-on-failure  -R "xpress"
+
+      - name: run test sirius
+        if: ${{ matrix.sirius == 'ON' }}
+        run: |
+          cd build
+          ctest -V -C Release --output-on-failure -R 'sirius'
 
       - name: Prepare OR-Tools install
         id: or-install

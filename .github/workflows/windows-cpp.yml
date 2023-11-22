@@ -16,11 +16,18 @@ env:
 
 jobs:
   build:
-    name: Windows cpp
-    runs-on: windows-latest
-
+    name: Windows cpp sirius=${{ matrix.sirius }} sirius-release-tag=${{ matrix.sirius-release-tag }}
+    runs-on: ${{ matrix.os }}
+    env:
+      SIRIUS_RELEASE_TAG: ${{ matrix.sirius-release-tag }}
+      SIRIUS_INSTALL_PATH: ${{ github.workspace }}/sirius_install
+      SIRIUS: ${{ github.workspace }}/sirius_install/bin
     strategy:
       fail-fast: false
+      matrix:
+        sirius: [ON, OFF]
+        os: [windows-latest]
+        sirius-release-tag: [ antares-integration-v1.4 ]
     steps:
       - uses: actions/checkout@v4
 
@@ -38,6 +45,16 @@ jobs:
           echo "XPRESSDIR=$XPRESS_DIR" >> $GITHUB_ENV
           echo "XPAUTH_PATH=$XPRESS_DIR\license\community-xpauth.xpr" >> $GITHUB_ENV
           echo "$XPRESS_DIR/bin" >> $GITHUB_PATH
+
+      - name: Download Sirius
+        if: ${{ matrix.sirius == 'ON' }}
+        shell: bash
+        run: |
+          zipfile=${{ matrix.os }}_sirius-solver.zip
+          wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
+          unzip $zipfile
+          mv "${{ matrix.os }}_sirius-solver-install" "${{ env.SIRIUS_INSTALL_PATH }}"
+          echo "${{ env.SIRIUS }}" >> $GITHUB_PATH
 
       - name: Check cmake
         run: cmake --version
@@ -82,6 +99,11 @@ jobs:
           Get-ChildItem -Path $env:XPRESSDIR
           ctest -V -C Release --output-on-failure -R "xpress"
 
+      - name: Tests sirius
+        working-directory: ./build/
+        run: >
+          ctest -V -C Release --output-on-failure -R "sirius"
+
       - name: Install
         run: >
           cmake --build build
@@ -95,10 +117,14 @@ jobs:
         run: |
           SHARED=${{ matrix.shared }}
           [ $SHARED == "ON" ] && WITH_SHARED="_shared" || WITH_SHARED="_static"
-          OS="_windows-latest"
-          APPENDIX="${OS}"
+          SIRIUS_TAG=${{ matrix.sirius-release-tag }}
+          [ $SIRIUS_TAG == "metrix-integration-v0.1" ] && SIRIUS_BRANCH="-metrix" || SIRIUS_BRANCH=""
+          SIRIUS=${{ matrix.sirius }}
+          [ $SIRIUS == "ON" ] && WITH_SIRIUS="_sirius$SIRIUS_BRANCH" || WITH_SIRIUS=""
+          OS="_${{ matrix.os }}"
+          APPENDIX="${OS}${WITH_SIRIUS}"
           echo "::set-output name=appendix::$APPENDIX"
-          APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}"
+          APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}${WITH_SIRIUS}"
           echo "::set-output name=appendix_with_shared::$APPENDIX_WITH_SHARED"
 
       - name: is release created

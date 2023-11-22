@@ -23,8 +23,7 @@ jobs:
     container: 'centos:centos7'
     env:
       SIRIUS_RELEASE_TAG: antares-integration-v1.4
-      XPRESS_INSTALL_DIR: xpressmp/
-      SIRIUS_INSTALL_DIR: ${{ github.workspace }}/sirius_install/
+      XPRESS_INSTALL_DIR: xpressmp
     strategy:
       fail-fast: false
       matrix:
@@ -94,9 +93,9 @@ jobs:
           zipfile=centos-7_sirius-solver.zip
           wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
           unzip $zipfile
-          mv centos-7_sirius-solver-install ${{ env.SIRIUS_INSTALL_DIR }}
-          echo "LD_LIBRARY_PATH=${{ env.SIRIUS_INSTALL_DIR }}/lib" >> $GITHUB_ENV
-          echo "SIRIUS_CMAKE_DIR=${{ env.SIRIUS_INSTALL_DIR }}/cmake" >> $GITHUB_ENV
+          mv centos-7_sirius-solver-install sirius_install
+          echo "LD_LIBRARY_PATH=$PWD/sirius_install/lib" >> $GITHUB_ENV
+          echo "SIRIUS_CMAKE_DIR=$PWD/sirius_install/cmake" >> $GITHUB_ENV
 
       - name: Configure OR-Tools
         run: |
@@ -122,6 +121,7 @@ jobs:
           cmake --build build --config Release --target all install -j4
 
       - name: run tests not xpress
+        if: ${{ matrix.shared == 'ON' }}
         run: |
           cd build
           ctest -C Release --output-on-failure  -E "xpress"

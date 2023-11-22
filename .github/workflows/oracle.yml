@@ -24,7 +24,6 @@ jobs:
     env:
       SIRIUS_RELEASE_TAG: antares-integration-v1.4
       XPRESS_INSTALL_DIR: xpressmp/
-      SIRIUS_INSTALL_DIR: ${{ github.workspace }}/sirius_install/
     strategy:
       fail-fast: false
       matrix:
@@ -115,9 +114,9 @@ jobs:
           zipfile=oraclelinux-8_sirius-solver.zip
           wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
           unzip $zipfile
-          mv oraclelinux-8_sirius-solver-install ${{ env.SIRIUS_INSTALL_DIR }}
-          echo "LD_LIBRARY_PATH=${{ env.SIRIUS_INSTALL_DIR }}/lib" >> $GITHUB_ENV
-          echo "SIRIUS_CMAKE_DIR=${{ env.SIRIUS_INSTALL_DIR }}/cmake" >> $GITHUB_ENV
+          mv oraclelinux-8_sirius-solver-install sirius_install
+          echo "LD_LIBRARY_PATH=$PWD/sirius_install/lib" >> $GITHUB_ENV
+          echo "SIRIUS_CMAKE_DIR=$PWD/sirius_install/cmake" >> $GITHUB_ENV
 
       - name: Configure OR-Tools
         run: |

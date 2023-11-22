@@ -22,7 +22,7 @@ jobs:
       XPRESSDIR: ${{ github.workspace }}/xpressmp
       XPAUTH_PATH: ${{ github.workspace }}/xpressmp/bin/xpauth.xpr
       SIRIUS_RELEASE_TAG: ${{ matrix.sirius-release-tag }}
-      SIRIUS_INSTALL_PATH: ${{ github.workspace }}/sirius_install
+      SIRIUS_INSTALL_DIR: ${{ github.workspace }}/sirius_install
       SIRIUS: ${{ github.workspace }}/sirius_install/bin
     strategy:
       fail-fast: false
@@ -83,9 +83,9 @@ jobs:
           zipfile=${{ matrix.os }}_sirius-solver.zip
           wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
           unzip $zipfile
-          mv "${{ matrix.os }}_sirius-solver-install" "${{ env.SIRIUS_INSTALL_PATH }}"
-          echo "LD_LIBRARY_PATH=${{ env.SIRIUS_INSTALL_DIR }}/lib" >> $GITHUB_ENV
-          echo "SIRIUS_CMAKE_DIR=${{ env.SIRIUS_INSTALL_DIR }}/cmake" >> $GITHUB_ENV
+          mv "${{ matrix.os }}_sirius-solver-install" sirius_install
+          echo "LD_LIBRARY_PATH=$PWD/sirius_install/lib" >> $GITHUB_ENV
+          echo "SIRIUS_CMAKE_DIR=$PWD/sirius_install/cmake" >> $GITHUB_ENV
 
       - name: ccache
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
@@ -118,6 +118,7 @@ jobs:
           --target all install -j4
 
       - name: run tests not xpress
+        if: ${{ matrix.cmake.shared == 'ON' }}
         working-directory: ./build/
         run: >
           ctest

@@ -105,8 +105,8 @@ jobs:
           -DBUILD_DOTNET=${{ matrix.cmake.dotnet }}
           -DBUILD_EXAMPLES=ON
           -DBUILD_DEPS=ON
-          -DUSE_SIRIUS=${{ matrix.sirius }} \
-          -Dsirius_solver_DIR="${{ env.SIRIUS_CMAKE_DIR }}" \
+          -DUSE_SIRIUS=${{ matrix.sirius }}
+          -Dsirius_solver_DIR="${{ env.SIRIUS_CMAKE_DIR }}"
           -DBUILD_SAMPLES=OFF
           -DCMAKE_INSTALL_PREFIX="build/install"
 

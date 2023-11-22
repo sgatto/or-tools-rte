@@ -51,6 +51,9 @@ jobs:
           python-version: ${{ matrix.cmake.python-version }}
       - name: Update Path
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: install python packages
+        run: >
+          python -m pip install absl-py mypy mypy-protobuf
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v1.13
         with:

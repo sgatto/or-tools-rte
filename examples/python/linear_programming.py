@@ -139,7 +139,6 @@ def main():
     RunLinearExampleNaturalLanguageAPI("CLP")
     RunLinearExampleNaturalLanguageAPI("PDLP")
     RunLinearExampleNaturalLanguageAPI("XPRESS_LP")
-    RunLinearExampleNaturalLanguageAPI("SIRIUS_LP")
 
     RunLinearExampleCppStyleAPI("GLOP")
     RunLinearExampleCppStyleAPI("GLPK_LP")

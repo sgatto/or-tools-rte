@@ -145,6 +145,13 @@ if(USE_CPLEX)
   find_package(CPLEX REQUIRED)
 endif()
 
+if (USE_SIRIUS)
+  if(POLICY CMP0074)
+	  cmake_policy(SET CMP0074 NEW)
+	endif()
+	find_package(sirius_solver CONFIG REQUIRED)
+endif(USE_SIRIUS)
+
 # Check language Dependencies
 if(BUILD_PYTHON)
   if(NOT BUILD_pybind11)

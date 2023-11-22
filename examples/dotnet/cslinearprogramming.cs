@@ -161,6 +161,7 @@ public class CsLinearProgramming
         RunLinearProgrammingExample("GLPK_LP");
         RunLinearProgrammingExample("CLP");
         RunLinearProgrammingExample("XPRESS_LP");
+        RunLinearProgrammingExample("SIRIUS_LP");
 
         RunLinearProgrammingExampleNaturalApi("GLOP", true);
         RunLinearProgrammingExampleNaturalApi("GLPK_LP", false);

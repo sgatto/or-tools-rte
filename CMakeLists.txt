@@ -278,6 +278,9 @@ endif()
 option(USE_CPLEX "Use the CPLEX solver" OFF)
 message(STATUS "CPLEX support: ${USE_CPLEX}")
 
+option(USE_SIRIUS "Build and use SIRIUS interface" OFF)
+message(STATUS "SIRIUS support: ${USE_SIRIUS}")
+
 ## XPRESS
 # Since it is dynamicaly loaded upon use, OFF is currently not supported.
 CMAKE_DEPENDENT_OPTION(USE_XPRESS "Use the Xpress solver" ON "BUILD_CXX" OFF)

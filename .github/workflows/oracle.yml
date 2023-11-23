@@ -20,7 +20,7 @@ jobs:
   build:
     name: sirius=${{ matrix.sirius }} shrd=${{ matrix.cmake.shared }} java=${{ matrix.cmake.java }} python=${{ matrix.cmake.python }}
     runs-on: ubuntu-latest
-    container: 'oraclelinux:8'
+    container: 'oraclelinux:8.8'
     env:
       SIRIUS_RELEASE_TAG: antares-integration-v1.4
       XPRESS_INSTALL_DIR: xpressmp/

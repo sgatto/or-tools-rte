@@ -1711,7 +1711,7 @@ void XpressInterface::SetLpAlgorithm(int value) {
 std::vector<int> XpressBasisStatusesFrom(
     const std::vector<MPSolver::BasisStatus>& statuses) {
   std::vector<int> result;
-  result.reserve(statuses.size());
+  result.resize(statuses.size());
   std::transform(statuses.cbegin(), statuses.cend(), result.begin(),
                  MPSolverToXpressBasisStatus);
   return result;

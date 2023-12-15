@@ -1737,8 +1737,17 @@ void XpressInterface::SetStartingLpBasis(
     LOG(DFATAL) << __FUNCTION__ << " is only available for LP problems";
     return;
   }
-  initial_variables_basis_status_ = XpressBasisStatusesFrom(variable_statuses);
-  initial_constraint_basis_status_ = XpressBasisStatusesFrom(constraint_statuses);
+
+  // We try & extract the model, but only if the sizes match
+  const std::vector<MPVariable*>& variables = solver_->variables();
+  const std::vector<MPConstraint*>& constraints = solver_->constraints();
+  if (variable_statuses.size() == variables.size()
+      && constraint_statuses.size() == constraints.size())
+  {
+    ExtractModel();
+    initial_variables_basis_status_ = XpressBasisStatusesFrom(variable_statuses);
+    initial_constraint_basis_status_ = XpressBasisStatusesFrom(constraint_statuses);
+  }
 }
 
 bool XpressInterface::readParameters(std::istream& is, char sep) {

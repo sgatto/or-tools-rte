@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 #include "ortools/base/init_google.h"
 #include "ortools/linear_solver/linear_solver.h"
+#include "ortools/linear_solver/xpress_basis_status.h"
 #include "ortools/xpress/environment.h"
 #define XPRS_NAMELENGTH 1028
 
@@ -299,6 +300,44 @@ TEST(XpressInterface, isMIP) {
 TEST(XpressInterface, isLP) {
   UNITTEST_INIT_LP();
   EXPECT_EQ(solver.IsMIP(), false);
+}
+
+// XPRESS -> MPSolver -> XPRESS
+TEST(XpressInterface, BasisConversion_XPRS_AT_LOWER) {
+  EXPECT_EQ(MPSolverToXpressBasisStatus(XpressToMPSolverBasisStatus(XPRS_AT_LOWER)), XPRS_AT_LOWER);
+}
+
+TEST(XpressInterface, BasisConversion_XPRS_BASIC) {
+  EXPECT_EQ(MPSolverToXpressBasisStatus(XpressToMPSolverBasisStatus(XPRS_BASIC)), XPRS_BASIC);
+}
+
+TEST(XpressInterface, BasisConversion_XPRS_AT_UPPER) {
+  EXPECT_EQ(MPSolverToXpressBasisStatus(XpressToMPSolverBasisStatus(XPRS_AT_UPPER)), XPRS_AT_UPPER);
+}
+
+TEST(XpressInterface, BasisConversion_XPRS_FREE_SUPER) {
+  EXPECT_EQ(MPSolverToXpressBasisStatus(XpressToMPSolverBasisStatus(XPRS_FREE_SUPER)), XPRS_FREE_SUPER);
+}
+
+// MPSolver -> XPRESS -> MPSolver
+TEST(XpressInterface, BasisConversion_MPSolver_FREE) {
+    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::FREE)), MPSolver::FREE);
+}
+
+TEST(XpressInterface, BasisConversion_MPSolver_AT_LOWER_BOUND) {
+    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::AT_LOWER_BOUND)), MPSolver::AT_LOWER_BOUND);
+}
+
+TEST(XpressInterface, BasisConversion_MPSolver_AT_UPPER_BOUND) {
+    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::AT_UPPER_BOUND)), MPSolver::AT_UPPER_BOUND);
+}
+
+TEST(XpressInterface, DISABLED_BasisConversion_MPSolver_FIXED_VALUE) {
+    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::FIXED_VALUE)), MPSolver::FIXED_VALUE);
+}
+
+TEST(XpressInterface, BasisConversion_MPSolver_BASIC) {
+    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::BASIC)), MPSolver::BASIC);
 }
 
 TEST(XpressInterface, LpStartingBasis) {

@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 #include "ortools/base/init_google.h"
 #include "ortools/linear_solver/linear_solver.h"
-#include "ortools/linear_solver/xpress_basis_status.h"
+#include "ortools/linear_solver/xpress_interface.h"
 #include "ortools/xpress/environment.h"
 #define XPRS_NAMELENGTH 1028
 

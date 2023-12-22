@@ -26,6 +26,7 @@
 #include "ortools/base/logging.h"
 #include "ortools/base/timer.h"
 #include "ortools/linear_solver/linear_solver.h"
+#include "ortools/linear_solver/xpress_interface.h"
 #include "ortools/xpress/environment.h"
 
 #define XPRS_INTEGER 'I'
@@ -202,13 +203,6 @@ void interruptXPRESS(XPRSprob& xprsProb, CUSTOM_INTERRUPT_REASON reason) {
   // Reason values below 1000 are reserved by XPRESS
   XPRSinterrupt(xprsProb, 1000 + reason);
 }
-
-enum XPRS_BASIS_STATUS {
-  XPRS_AT_LOWER = 0,
-  XPRS_BASIC = 1,
-  XPRS_AT_UPPER = 2,
-  XPRS_FREE_SUPER = 3
-};
 
 // In case we need to return a double but don't have a value for that
 // we just return a NaN.
@@ -480,13 +474,6 @@ class XpressInterface : public MPSolverInterface {
       const std::string& parameters) override;
   MPCallback* callback_ = nullptr;
 };
-
-// Transform MPSolver basis status to XPRESS status
-static int MPSolverToXpressBasisStatus(
-    MPSolver::BasisStatus mpsolver_basis_status);
-// Transform XPRESS basis status to MPSolver basis status.
-static MPSolver::BasisStatus XpressToMPSolverBasisStatus(
-    int xpress_basis_status);
 
 static std::map<std::string, int>& getMapStringControls() {
   static std::map<std::string, int> mapControls = {
@@ -1243,7 +1230,7 @@ int64_t XpressInterface::nodes() const {
 }
 
 // Transform a XPRESS basis status to an MPSolver basis status.
-static MPSolver::BasisStatus XpressToMPSolverBasisStatus(
+MPSolver::BasisStatus XpressToMPSolverBasisStatus(
     int xpress_basis_status) {
   switch (xpress_basis_status) {
     case XPRS_AT_LOWER:
@@ -1260,7 +1247,7 @@ static MPSolver::BasisStatus XpressToMPSolverBasisStatus(
   }
 }
 
-static int MPSolverToXpressBasisStatus(MPSolver::BasisStatus mpsolver_basis_status) {
+int MPSolverToXpressBasisStatus(MPSolver::BasisStatus mpsolver_basis_status) {
   switch (mpsolver_basis_status) {
     case MPSolver::AT_LOWER_BOUND:
       return XPRS_AT_LOWER;
@@ -1724,7 +1711,7 @@ void XpressInterface::SetLpAlgorithm(int value) {
 std::vector<int> XpressBasisStatusesFrom(
     const std::vector<MPSolver::BasisStatus>& statuses) {
   std::vector<int> result;
-  result.reserve(statuses.size());
+  result.resize(statuses.size());
   std::transform(statuses.cbegin(), statuses.cend(), result.begin(),
                  MPSolverToXpressBasisStatus);
   return result;

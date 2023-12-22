@@ -168,7 +168,7 @@ jobs:
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload OR-Tools install artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.or-install.outputs.archive_name }}
           path: ${{ steps.or-install.outputs.archive_path }}
@@ -187,7 +187,7 @@ jobs:
           echo "::set-output name=archive_path::$ARCHIVE_PATH"
       - name: Upload OR-Tools wheel artifact
         if: ${{ matrix.cmake.python == 'ON' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.wheel.outputs.archive_name }}
           path: ${{ steps.wheel.outputs.archive_path }}
@@ -213,7 +213,7 @@ jobs:
           echo "::set-output name=archive_path::$ARCHIVE_PATH"
       - name: Upload OR-Tools jar artifact
         if: ${{ matrix.cmake.java == 'ON' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.jar.outputs.archive_name }}
           path: ${{ steps.jar.outputs.archive_path }}

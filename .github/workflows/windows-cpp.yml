@@ -159,17 +159,13 @@ jobs:
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload OR-Tools install artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ env.RELEASE_CREATED == 'false' }}
         with:
           name: ${{ steps.or-install.outputs.archive_name }}
           path: ${{ steps.or-install.outputs.archive_path }}
-
       - name: Publish OR-Tools install asset
         if:  ${{ env.RELEASE_CREATED == 'true' }}
-        uses: actions/upload-release-asset@v1.0.2
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ${{ steps.or-install.outputs.archive_path }}
-          asset_name: ${{ steps.or-install.outputs.archive_name }}
-          asset_content_type: application/zip
+          files: ${{ steps.or-install.outputs.archive_path }}

@@ -184,20 +184,16 @@ jobs:
           
 
       - name: Upload OR-Tools install artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ env.RELEASE_CREATED == 'false' && matrix.cmake.publish-cxx-or == 'ON' }}
         with:
           name: ${{ steps.or-install.outputs.archive_name }}
           path: ${{ steps.or-install.outputs.archive_path }}
-
       - name: Publish OR-Tools install asset
         if:  ${{ env.RELEASE_CREATED == 'true' && matrix.cmake.publish-cxx-or == 'ON' }}
-        uses: actions/upload-release-asset@v1.0.2
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ${{ steps.or-install.outputs.archive_path }}
-          asset_name: ${{ steps.or-install.outputs.archive_name }}
-          asset_content_type: application/zip
+          files: ${{ steps.or-install.outputs.archive_path }}
 
       - name: prepare OR-Tools wheel
         if: ${{ matrix.cmake.python == 'ON' }}
@@ -216,18 +212,15 @@ jobs:
 
       - name: Upload OR-Tools wheel artifact
         if: ${{ env.RELEASE_CREATED == 'false' && matrix.cmake.python == 'ON' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.wheel.outputs.archive_name }}
           path: ${{ steps.wheel.outputs.archive_path }}
       - name: Publish OR-Tools wheel asset
         if:  ${{ env.RELEASE_CREATED == 'true' && matrix.cmake.python == 'ON' }}
-        uses: actions/upload-release-asset@v1.0.2
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ${{ steps.wheel.outputs.archive_path }}
-          asset_name: ${{ steps.wheel.outputs.archive_name }}
-          asset_content_type: application/zip
+          files: ${{ steps.wheel.outputs.archive_path }}
 
       - name: prepare OR-Tools jar
         if: ${{ matrix.cmake.java == 'ON' }}
@@ -246,18 +239,15 @@ jobs:
 
       - name: Upload OR-Tools jar artifact
         if: ${{ env.RELEASE_CREATED == 'false' && matrix.cmake.java == 'ON' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.jar.outputs.archive_name }}
           path: ${{ steps.jar.outputs.archive_path }}
       - name: Publish OR-Tools jar asset
         if:  ${{ env.RELEASE_CREATED == 'true' && matrix.cmake.java == 'ON' }}
-        uses: actions/upload-release-asset@v1.0.2
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ${{ steps.jar.outputs.archive_path }}
-          asset_name: ${{ steps.jar.outputs.archive_name }}
-          asset_content_type: application/zip
+          files: ${{ steps.jar.outputs.archive_path }}
 
       - name: prepare OR-Tools dotnet
         if: ${{ matrix.cmake.dotnet == 'ON' }}
@@ -277,15 +267,12 @@ jobs:
 
       - name: Upload OR-Tools dotnet artifact
         if: ${{ env.RELEASE_CREATED == 'false' && matrix.cmake.dotnet == 'ON' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.dotnet.outputs.archive_name }}
           path: ${{ steps.dotnet.outputs.archive_path }}
       - name: Publish OR-Tools dotnet asset
         if:  ${{ env.RELEASE_CREATED == 'true' && matrix.cmake.dotnet == 'ON' }}
-        uses: actions/upload-release-asset@v1.0.2
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ${{ steps.dotnet.outputs.archive_path }}
-          asset_name: ${{ steps.dotnet.outputs.archive_name }}
-          asset_content_type: application/zip
+          files: ${{ steps.dotnet.outputs.archive_path }}

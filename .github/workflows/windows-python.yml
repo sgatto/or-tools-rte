@@ -154,16 +154,12 @@ jobs:
 
       - name: Upload OR-Tools wheel artifact
         if: ${{ env.RELEASE_CREATED == 'false' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.wheel.outputs.archive_name }}
           path: ${{ steps.wheel.outputs.archive_path }}
-
       - name: Publish OR-Tools wheel asset
         if:  ${{ env.RELEASE_CREATED == 'true' }}
-        uses: actions/upload-release-asset@v1.0.2
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.get_release.outputs.upload_url }}
-          asset_path: ${{ steps.wheel.outputs.archive_path }}
-          asset_name: ${{ steps.wheel.outputs.archive_name }}
-          asset_content_type: application/zip
+          files: ${{ steps.wheel.outputs.archive_path }}

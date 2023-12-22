@@ -154,7 +154,7 @@ jobs:
         if:  ${{ env.RELEASE_CREATED == 'true' }}
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ steps.jar.outputs.archive_path }}
+          files: build/${{ steps.jar.outputs.archive_name }}
 
       - name: prepare OR-Tools dotnet
         id: dotnet
@@ -181,4 +181,4 @@ jobs:
         if:  ${{ env.RELEASE_CREATED == 'true' }}
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ steps.dotnet.outputs.archive_path }}
+          files: build/${{ steps.dotnet.outputs.archive_name }}

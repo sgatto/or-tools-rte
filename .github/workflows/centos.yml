@@ -155,4 +155,4 @@ jobs:
         if: ${{ env.RELEASE_CREATED == 'true' }}
         uses: softprops/action-gh-release@v1
         with:
-          files: build/${{ steps.or-install.outputs.archive_name }}
+          files: ${{ steps.or-install.outputs.archive_path }}

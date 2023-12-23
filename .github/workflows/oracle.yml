@@ -176,7 +176,7 @@ jobs:
         if: ${{ env.RELEASE_CREATED == 'true' }}
         uses: softprops/action-gh-release@v1
         with:
-          files: build/${{ steps.or-install.outputs.archive_name }}
+          files: ${{ steps.or-install.outputs.archive_path }}
 
       - name: prepare OR-Tools wheel
         if: ${{ matrix.cmake.python == 'ON' }}
@@ -200,7 +200,7 @@ jobs:
         if: ${{ matrix.cmake.python == 'ON' && env.RELEASE_CREATED == 'true' }}
         uses: softprops/action-gh-release@v1
         with:
-          files: build/${{ steps.wheel.outputs.archive_name }}
+          files: ${{ steps.wheel.outputs.archive_path }}
 
       - name: prepare OR-Tools jar
         if: ${{ matrix.cmake.java == 'ON' }}
@@ -231,4 +231,4 @@ jobs:
         if: ${{ matrix.cmake.java == 'ON' && env.RELEASE_CREATED == 'true' }}
         uses: softprops/action-gh-release@v1
         with:
-          files: build/${{ steps.jar.outputs.archive_name }}
+          files: ${{ steps.jar.outputs.archive_path }}

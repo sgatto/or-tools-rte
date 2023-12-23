@@ -145,7 +145,6 @@ jobs:
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload OR-Tools jar artifact
-        if: ${{ env.RELEASE_CREATED == 'false'}}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.jar.outputs.archive_name }}
@@ -172,7 +171,6 @@ jobs:
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload OR-Tools dotnet artifact
-        if: ${{ env.RELEASE_CREATED == 'false' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.dotnet.outputs.archive_name }}

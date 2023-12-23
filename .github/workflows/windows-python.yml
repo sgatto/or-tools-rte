@@ -153,7 +153,6 @@ jobs:
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload OR-Tools wheel artifact
-        if: ${{ env.RELEASE_CREATED == 'false' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.wheel.outputs.archive_name }}

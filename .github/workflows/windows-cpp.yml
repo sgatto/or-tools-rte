@@ -160,7 +160,6 @@ jobs:
 
       - name: Upload OR-Tools install artifact
         uses: actions/upload-artifact@v4
-        if: ${{ env.RELEASE_CREATED == 'false' }}
         with:
           name: ${{ steps.or-install.outputs.archive_name }}
           path: ${{ steps.or-install.outputs.archive_path }}

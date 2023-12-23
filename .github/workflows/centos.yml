@@ -151,20 +151,8 @@ jobs:
         with:
           name: ${{ steps.or-install.outputs.archive_name }}
           path: ${{ steps.or-install.outputs.archive_path }}
-
-  publish_asset:
-    name: Publish release assets
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download artifacts
+      - name: Publish OR-Tools install asset
         if: ${{ env.RELEASE_CREATED == 'true' }}
-        uses: actions/download-artifact@v3
-
-      - name: Publish assets
-        if:  ${{ env.RELEASE_CREATED == 'true' }}
-        uses: alexellis/upload-assets@0.4.0
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+        uses: softprops/action-gh-release@v1
         with:
-          asset_paths: '["*/*.zip"]'
+          files: build/${{ steps.or-install.outputs.archive_name }}

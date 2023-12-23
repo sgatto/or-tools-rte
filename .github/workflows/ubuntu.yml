@@ -181,11 +181,10 @@ jobs:
           zip -r "$ARCHIVE_PATH" ./install
           echo "archive_name=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
-          
 
       - name: Upload OR-Tools install artifact
         uses: actions/upload-artifact@v4
-        if: ${{ env.RELEASE_CREATED == 'false' && matrix.cmake.publish-cxx-or == 'ON' }}
+        if: ${{ matrix.cmake.publish-cxx-or == 'ON' }}
         with:
           name: ${{ steps.or-install.outputs.archive_name }}
           path: ${{ steps.or-install.outputs.archive_path }}
@@ -211,7 +210,7 @@ jobs:
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload OR-Tools wheel artifact
-        if: ${{ env.RELEASE_CREATED == 'false' && matrix.cmake.python == 'ON' }}
+        if: ${{ matrix.cmake.python == 'ON' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.wheel.outputs.archive_name }}
@@ -238,7 +237,7 @@ jobs:
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload OR-Tools jar artifact
-        if: ${{ env.RELEASE_CREATED == 'false' && matrix.cmake.java == 'ON' }}
+        if: ${{ matrix.cmake.java == 'ON' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.jar.outputs.archive_name }}
@@ -266,7 +265,7 @@ jobs:
           echo "archive_path=$ARCHIVE_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload OR-Tools dotnet artifact
-        if: ${{ env.RELEASE_CREATED == 'false' && matrix.cmake.dotnet == 'ON' }}
+        if: ${{ matrix.cmake.dotnet == 'ON' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.dotnet.outputs.archive_name }}

@@ -168,7 +168,7 @@ jobs:
         if: ${{ env.RELEASE_CREATED == 'true' }}
         id: get_release
         uses:
-          bruceadams/get-release@v1.2.3
+          bruceadams/get-release@v1.3.2
 
       - name: Prepare OR-Tools install
         if: ${{ matrix.cmake.publish-cxx-or == 'ON' }}

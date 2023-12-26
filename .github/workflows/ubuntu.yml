@@ -154,9 +154,9 @@ jobs:
           [ $SIRIUS == "ON" ] && WITH_SIRIUS="_sirius" || WITH_SIRIUS=""
           OS="_${{ matrix.os }}"
           APPENDIX="${OS}${WITH_SIRIUS}"
-          echo "::set-output name=appendix::$APPENDIX"
+          echo "appendix=$APPENDIX" >> $GITHUB_OUTPUT
           APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}${WITH_SIRIUS}"
-          echo "::set-output name=appendix_with_shared::$APPENDIX_WITH_SHARED"
+          echo "appendix_with_shared=$APPENDIX_WITH_SHARED" >> $GITHUB_OUTPUT
 
       - name: is release created
         shell: bash

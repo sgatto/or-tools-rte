@@ -117,9 +117,9 @@ jobs:
           [ $SHARED == "ON" ] && WITH_SHARED="_shared" || WITH_SHARED="_static"
           OS="_windows-latest"
           APPENDIX="${OS}"
-          echo "::set-output name=appendix::$APPENDIX"
+          echo "appendix=$APPENDIX" >> $GITHUB_OUTPUT
           APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}"
-          echo "::set-output name=appendix_with_shared::$APPENDIX_WITH_SHARED"
+          echo "appendix_with_shared=$APPENDIX_WITH_SHARED" >> $GITHUB_OUTPUT
 
       - name: is release created
         shell: bash

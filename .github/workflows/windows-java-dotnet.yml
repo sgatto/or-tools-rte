@@ -55,6 +55,13 @@ jobs:
           echo "XPAUTH_PATH=$XPRESS_DIR\license\community-xpauth.xpr" >> $GITHUB_ENV
           echo "$XPRESS_DIR/bin" >> $GITHUB_PATH
 
+      - name: examples on off
+        id: examples
+        shell: bash
+        run: |
+          [ ${{ env.RELEASE_CREATED }} == "true" ] && WITH_EXAMPLES="OFF" || WITH_EXAMPLES="ON"
+          echo "on=$WITH_EXAMPLES" >> $GITHUB_OUTPUT
+
       - name: Check cmake
         run: cmake --version
       - name: Configure
@@ -63,6 +70,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DBUILD_JAVA=ON
           -DBUILD_DOTNET=ON
+          -DBUILD_EXAMPLES=${{ steps.examples.outputs.on }}
           -DBUILD_CXX_SAMPLES=OFF
           -DBUILD_SAMPLES=OFF
           -DCMAKE_INSTALL_PREFIX="install"

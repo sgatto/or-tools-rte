@@ -64,6 +64,13 @@ jobs:
           echo "XPAUTH_PATH=$XPRESS_DIR\license\community-xpauth.xpr" >> $GITHUB_ENV
           echo "$XPRESS_DIR/bin" >> $GITHUB_PATH
 
+      - name: examples on off
+        id: examples
+        shell: bash
+        run: |
+          [ ${{ env.RELEASE_CREATED }} == "true" ] && WITH_EXAMPLES="OFF" || WITH_EXAMPLES="ON"
+          echo "on=$WITH_EXAMPLES" >> $GITHUB_OUTPUT
+
       - name: Check cmake
         run: cmake --version
       - name: Configure
@@ -71,6 +78,8 @@ jobs:
           cmake -S. -Bbuild
           -G "Visual Studio 17 2022"
           -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_SAMPLES=OFF 
+          -DBUILD_EXAMPLES=${{ steps.examples.outputs.on }}
           -DBUILD_CXX_SAMPLES=OFF
           -DBUILD_PYTHON=ON
           -DBUILD_SAMPLES=OFF

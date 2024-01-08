@@ -63,7 +63,7 @@ jobs:
         id: examples
         shell: bash
         run: |
-          [ ${{ env.RELEASE_CREATED == 'true' }} ] && WITH_EXAMPLES="OFF" || WITH_EXAMPLES="ON"
+          [ ${{ env.RELEASE_CREATED }} == "true" ] && WITH_EXAMPLES="OFF" || WITH_EXAMPLES="ON"
           echo "on=$WITH_EXAMPLES" >> $GITHUB_OUTPUT
 
       - name: Check cmake

@@ -34,6 +34,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: is release created
+        shell: bash
+        run: |
+          release_created=${{ github.event_name == 'release' && github.event.action == 'created' }}
+          echo "RELEASE_CREATED=$release_created" >> $GITHUB_ENV
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -70,7 +76,7 @@ jobs:
         run: |
           RELEASE_CREATED = ${{ env.RELEASE_CREATED }}
           echo $RELEASE_CREATED
-          [ $RELEASE_CREATED  == "true" ] && WITH_EXAMPLES="OFF" || WITH_EXAMPLES="ON"
+          [ ${{ env.RELEASE_CREATED }} ] && WITH_EXAMPLES="OFF" || WITH_EXAMPLES="ON"
           echo "on=$WITH_EXAMPLES" >> $GITHUB_OUTPUT
 
       - name: Check cmake
@@ -131,12 +137,6 @@ jobs:
           echo "appendix=$APPENDIX" >> $GITHUB_OUTPUT
           APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}"
           echo "appendix_with_shared=$APPENDIX_WITH_SHARED" >> $GITHUB_OUTPUT
-
-      - name: is release created
-        shell: bash
-        run: |
-          release_created=${{ github.event_name == 'release' && github.event.action == 'created' }}
-          echo "RELEASE_CREATED=$release_created" >> $GITHUB_ENV
 
       - name: Get release
         if: ${{ env.RELEASE_CREATED == 'true' }}

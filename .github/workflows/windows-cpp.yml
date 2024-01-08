@@ -67,6 +67,7 @@ jobs:
           cmake -S. -Bbuild
           -DCMAKE_BUILD_TYPE=Release
           -DBUILD_DEPS=ON
+          -DBUILD_SAMPLES=OFF 
           -DCMAKE_INSTALL_PREFIX="install"
           -DBUILD_FLATZINC=OFF
 
@@ -167,4 +168,4 @@ jobs:
         if:  ${{ env.RELEASE_CREATED == 'true' }}
         uses: softprops/action-gh-release@v1
         with:
-          files: build/${{ steps.or-install.outputs.archive_path }}
+          files: build/${{ steps.or-install.outputs.archive_name }}

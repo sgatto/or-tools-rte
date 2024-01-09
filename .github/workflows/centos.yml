@@ -71,7 +71,7 @@ jobs:
 
       - name: Set-up Xpress from wheel
         run: |
-          python3 -m pip download -h
+          pip3 install --upgrade pip
           mkdir xpress
           cd xpress
           pip3 download --only-binary=:all: --platform linux_x86_64 --implementation cp --python-version 310  xpress

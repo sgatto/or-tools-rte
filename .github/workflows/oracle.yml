@@ -35,6 +35,8 @@ jobs:
       - name: set name variables
         id: names
         run: |
+          BUILD_EXAMPLES=${{ env.RELEASE_CREATED && 'OFF' || 'ON' }}
+          echo $BUILD_EXAMPLES
           SHARED=${{ matrix.cmake.shared }}
           [ $SHARED == "ON" ] && WITH_SHARED="_shared" || WITH_SHARED="_static"
           SIRIUS=${{ matrix.sirius }}

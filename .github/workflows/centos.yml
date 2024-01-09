@@ -74,7 +74,7 @@ jobs:
           python3 -m pip download -h
           mkdir xpress
           cd xpress
-          pip3 download --only-binary=:all: --python-version 310  xpress
+          pip3 download --only-binary=:all: --platform linux_x86_64 --implementation cp --python-version 310  xpress
           unzip xpr*.whl
           XPRESS_DIR=$PWD/xpress
           echo "XPRESSDIR=$XPRESS_DIR" >> $GITHUB_ENV

@@ -107,7 +107,7 @@ jobs:
             -DBUILD_PYTHON=${{ matrix.python }} \
             -DBUILD_JAVA=${{ matrix.java }} \
             -DBUILD_DOTNET=${{ matrix.dotnet }} \
-            -DBUILD_EXAMPLES=ON \
+            -DBUILD_EXAMPLES=${{ env.RELEASE_CREATED && 'OFF' || 'ON' }} \
             -DBUILD_DEPS=ON \
             -DUSE_SIRIUS=${{ matrix.sirius }} \
             -Dsirius_solver_DIR="${{ env.SIRIUS_CMAKE_DIR }}" \

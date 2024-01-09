@@ -24,6 +24,7 @@ jobs:
       SIRIUS_RELEASE_TAG: ${{ matrix.sirius-release-tag }}
       SIRIUS_INSTALL_DIR: ${{ github.workspace }}/sirius_install
       SIRIUS: ${{ github.workspace }}/sirius_install/bin
+      RELEASE_CREATED: ${{ github.event_name == 'release' && github.event.action == 'created' }}
     strategy:
       fail-fast: false
       matrix:
@@ -103,7 +104,7 @@ jobs:
           -DBUILD_PYTHON=${{ matrix.cmake.python }}
           -DBUILD_JAVA=${{ matrix.cmake.java }}
           -DBUILD_DOTNET=${{ matrix.cmake.dotnet }}
-          -DBUILD_EXAMPLES=ON
+          -DBUILD_EXAMPLES=${{ env.RELEASE_CREATED && 'OFF' || 'ON' }}
           -DBUILD_DEPS=ON
           -DUSE_SIRIUS=${{ matrix.sirius }}
           -Dsirius_solver_DIR="${{ env.SIRIUS_CMAKE_DIR }}"
@@ -157,12 +158,6 @@ jobs:
           echo "appendix=$APPENDIX" >> $GITHUB_OUTPUT
           APPENDIX_WITH_SHARED="${OS}${WITH_SHARED}${WITH_SIRIUS}"
           echo "appendix_with_shared=$APPENDIX_WITH_SHARED" >> $GITHUB_OUTPUT
-
-      - name: is release created
-        shell: bash
-        run: |
-          release_created=${{ github.event_name == 'release' && github.event.action == 'created' }}
-          echo "RELEASE_CREATED=$release_created" >> $GITHUB_ENV
 
       - name: Get release
         if: ${{ env.RELEASE_CREATED == 'true' }}

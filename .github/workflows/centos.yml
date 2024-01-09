@@ -79,7 +79,7 @@ jobs:
 
           mkdir xpress
           cd xpress
-          python3 -m pip download --only-binary=:all: --no-deps  --python-version 39  xpress
+          pip3 download --only-binary=:all: --no-deps  --python-version 3  xpress
           unzip *.whl
           XPRESS_DIR=$PWD/xpress
           echo "XPRESSDIR=$XPRESS_DIR" >> $GITHUB_ENV

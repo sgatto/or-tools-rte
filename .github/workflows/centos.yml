@@ -85,12 +85,6 @@ jobs:
           echo "XPAUTH_PATH=$XPRESS_DIR/license/community-xpauth.xpr" >> $GITHUB_ENV
           ln -s $XPRESS_DIR/lib/libxprs.so.42 $XPRESS_DIR/lib/libxprs.so
 
-      - name: set Xpress variables
-        run: |
-          cd ${{ env.XPRESS_INSTALL_DIR }}
-          echo "XPRESSDIR=$PWD" >> $GITHUB_ENV
-          echo "XPAUTH_PATH=$PWD/bin/xpauth.xpr" >> $GITHUB_ENV
-
       - name: Download Sirius
         if : ${{ matrix.sirius == 'ON' }}
         run: |

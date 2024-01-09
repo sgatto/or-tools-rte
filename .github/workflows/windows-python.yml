@@ -7,7 +7,7 @@ on:
       - feature/*
       - merge*
       - fix/*
-      - release/*
+      - DISABLErelease/*
   release:
     types: [ created ]
 

@@ -76,10 +76,9 @@ jobs:
       - name: Set-up Xpress from wheel
         run: |
           python3 -m pip download -h
-
           mkdir xpress
           cd xpress
-          pip3 download --only-binary=:all: --no-deps  --python-version 3  xpress
+          pip3 download  xpress
           unzip *.whl
           XPRESS_DIR=$PWD/xpress
           echo "XPRESSDIR=$XPRESS_DIR" >> $GITHUB_ENV

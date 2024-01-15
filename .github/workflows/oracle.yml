@@ -23,7 +23,6 @@ jobs:
     container: 'oraclelinux:8'
     env:
       SIRIUS_RELEASE_TAG: antares-integration-v1.4
-      XPRESS_INSTALL_DIR: xpressmp/
     strategy:
       fail-fast: false
       matrix:
@@ -102,11 +101,11 @@ jobs:
 
       - name: Set-up Xpress with pip
         run: |
-          python3 -m pip install "xpress>=9.0,<9.1"
+          python3 -m pip install "xpress>=9.2,<9.3"
           XPRESS_DIR=/usr/local/lib64/python3.9/site-packages/xpress
           echo "XPRESSDIR=$XPRESS_DIR" >> $GITHUB_ENV
           echo "XPAUTH_PATH=$XPRESS_DIR/license/community-xpauth.xpr" >> $GITHUB_ENV
-          ln -s $XPRESS_DIR/lib/libxprs.so.41 $XPRESS_DIR/lib/libxprs.so
+          ln -s $XPRESS_DIR/lib/libxprs.so.42 $XPRESS_DIR/lib/libxprs.so
 
       - name: Download Sirius
         if: ${{ matrix.sirius == 'ON' }}
@@ -128,7 +127,7 @@ jobs:
             -DBUILD_PYTHON=${{ matrix.cmake.python }} \
             -DBUILD_JAVA=${{ matrix.cmake.java }} \
             -DBUILD_DOTNET=${{ matrix.cmake.dotnet }} \
-            -DBUILD_EXAMPLES=${{ env.RELEASE_CREATED && 'OFF' || 'ON' }} \
+            -DBUILD_EXAMPLES=${{ env.RELEASE_CREATED == 'true' && 'OFF' || 'ON' }} \
             -DBUILD_DEPS=ON \
             -DUSE_SIRIUS=${{ matrix.sirius }} \
             -Dsirius_solver_DIR="${{ env.SIRIUS_CMAKE_DIR }}" \

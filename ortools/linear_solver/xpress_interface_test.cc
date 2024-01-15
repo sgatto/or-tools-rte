@@ -858,7 +858,8 @@ TEST(XpressInterface, setStringControls) {
       {"COMPUTEEXECSERVICE", XPRS_COMPUTEEXECSERVICE, "default_value"},
   };
   for (const auto& [paramString, control, paramValue] : params) {
-    UNITTEST_INIT_MIP();
+    MPSolver solver("XPRESS_MIP", MPSolver::XPRESS_MIXED_INTEGER_PROGRAMMING);
+    XPRSGetter getter(&solver);
     std::string xpressParamString = paramString + " " + paramValue;
     solver.SetSolverSpecificParametersAsString(xpressParamString);
     EXPECT_EQ(paramValue, getter.getStringControl(control));

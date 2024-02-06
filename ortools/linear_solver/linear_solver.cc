@@ -405,6 +405,9 @@ extern MPSolverInterface* BuildCplexInterface(bool mip, MPSolver* const solver);
 #endif
 extern MPSolverInterface* BuildXpressInterface(bool mip,
                                                MPSolver* const solver);
+#if defined(USE_SIRIUS)
+extern MPSolverInterface* BuildSiriusInterface(bool mip, MPSolver* const solver);
+#endif
 
 namespace {
 MPSolverInterface* BuildSolverInterface(MPSolver* const solver) {
@@ -462,6 +465,12 @@ MPSolverInterface* BuildSolverInterface(MPSolver* const solver) {
       return BuildXpressInterface(true, solver);
     case MPSolver::XPRESS_LINEAR_PROGRAMMING:
       return BuildXpressInterface(false, solver);
+#if defined(USE_SIRIUS)
+	case MPSolver::SIRIUS_LINEAR_PROGRAMMING:
+		return BuildSiriusInterface(false, solver);
+	case MPSolver::SIRIUS_MIXED_INTEGER_PROGRAMMING:
+		return BuildSiriusInterface(true, solver);
+#endif
     default:
       // TODO(user): Revert to the best *available* interface.
       LOG(FATAL) << "Linear solver not recognized.";
@@ -542,6 +551,11 @@ bool MPSolver::SupportsProblemType(OptimizationProblemType problem_type) {
     return true;
   }
 #endif
+#ifdef USE_SIRIUS
+  if (problem_type == SIRIUS_MIXED_INTEGER_PROGRAMMING) return true;
+  if (problem_type == SIRIUS_LINEAR_PROGRAMMING) return true;
+#endif
+
   if (problem_type == XPRESS_MIXED_INTEGER_PROGRAMMING ||
       problem_type == XPRESS_LINEAR_PROGRAMMING) {
     return XpressIsCorrectlyInstalled();
@@ -584,6 +598,8 @@ constexpr
         {MPSolver::KNAPSACK_MIXED_INTEGER_PROGRAMMING, "knapsack"},
         {MPSolver::CPLEX_MIXED_INTEGER_PROGRAMMING, "cplex"},
         {MPSolver::XPRESS_MIXED_INTEGER_PROGRAMMING, "xpress"},
+        {MPSolver::SIRIUS_LINEAR_PROGRAMMING, "sirius_lp"},
+        {MPSolver::SIRIUS_MIXED_INTEGER_PROGRAMMING, "sirius"},
 };
 // static
 bool MPSolver::ParseSolverType(absl::string_view solver_id,

@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -70,32 +70,6 @@ using ::testing::UnorderedElementsAre;
 
 const double kInfinity = std::numeric_limits<double>::infinity();
 
-}  // namespace
-
-// ITERATION_TYPE_CONSIDER_CASE(x) expands to print the iteration type x to *os.
-// Using this macro prevents typos in the strings.
-#define ITERATION_TYPE_CONSIDER_CASE(x) \
-  case IterationType::x:                \
-    *os << #x;                          \
-    break
-
-// NOTE: `PrintTo(IterationType, std::ostream*)` needs to be in the same
-// namespace as `IterationType`.
-void PrintTo(IterationType iteration_type, std::ostream* os) {
-  switch (iteration_type) {
-    ITERATION_TYPE_CONSIDER_CASE(kNormal);
-    ITERATION_TYPE_CONSIDER_CASE(kPrimalFeasibility);
-    ITERATION_TYPE_CONSIDER_CASE(kDualFeasibility);
-    ITERATION_TYPE_CONSIDER_CASE(kNormalTermination);
-    ITERATION_TYPE_CONSIDER_CASE(kPresolveTermination);
-    ITERATION_TYPE_CONSIDER_CASE(kFeasibilityPolishingTermination);
-  }
-}
-
-#undef ITERATION_TYPE_CONSIDER_CASE
-
-namespace {
-
 PrimalDualHybridGradientParams CreateSolverParams(
     const int iteration_limit, const double eps_optimal_absolute,
     const bool enable_scaling, const int num_threads,
@@ -130,6 +104,8 @@ PrimalDualHybridGradientParams CreateSolverParams(
     params.set_diagonal_qp_trust_region_solver_tolerance(1.0e-8);
   }
   params.set_num_threads(num_threads);
+  // Protect against infinite loops if the termination criteria fail.
+  params.mutable_termination_criteria()->set_kkt_matrix_pass_limit(1'000'000.0);
   return params;
 }
 
@@ -1233,6 +1209,24 @@ TEST(PrimalDualHybridGradientTest,
             TERMINATION_REASON_INVALID_PROBLEM);
 }
 
+TEST(PrimalDualHybridGradientTest, DetectsNanObjectiveOffset) {
+  QuadraticProgram qp = TestLp();
+  qp.objective_offset = std::numeric_limits<double>::quiet_NaN();
+  SolverResult output =
+      PrimalDualHybridGradient(qp, PrimalDualHybridGradientParams());
+  EXPECT_EQ(output.solve_log.termination_reason(),
+            TERMINATION_REASON_INVALID_PROBLEM);
+}
+
+TEST(PrimalDualHybridGradientTest, DetectsExcessiveObjectiveOffset) {
+  QuadraticProgram qp = TestLp();
+  qp.objective_offset = -1.0e60;
+  SolverResult output =
+      PrimalDualHybridGradient(qp, PrimalDualHybridGradientParams());
+  EXPECT_EQ(output.solve_log.termination_reason(),
+            TERMINATION_REASON_INVALID_PROBLEM);
+}
+
 TEST(PrimalDualHybridGradientTest, DetectsNanInObjectiveVector) {
   QuadraticProgram qp = TestLp();
   qp.objective_vector[3] = std::numeric_limits<double>::quiet_NaN();
@@ -1610,6 +1604,39 @@ TEST(PrimalDualHybridGradientTest, DetailedTerminationCriteria) {
               EigenArrayNear<double>({0.0, 1.5, -3.5, 0.0}, 1.0e-4));
 }
 
+// Regression test for b/311455838. Note that this test only fails in debug
+// mode, when an infeasible primal variable (from the iterate differences)
+// violates presolve's assumptions and triggers a DCHECK() failure.
+TEST(PrimalDualHybridGradientTest, IterateDifferenceBoundsInPresolve) {
+  // A trivial (but very badly scaled) LP found by fuzzing.
+  QuadraticProgram lp(2, 1);
+  lp.objective_offset = -3.0e+23;
+  lp.objective_vector =
+      VectorXd{{2.7369110631344083e-48, -3.0517578125211636e-05}};
+  lp.constraint_lower_bounds = VectorXd{{-2.7369110631344083e-48}};
+  lp.constraint_upper_bounds = VectorXd{{0}};
+  lp.variable_lower_bounds = VectorXd{{1.8446744073709552e+21, -1.0}};
+  lp.variable_upper_bounds = VectorXd{{kInfinity, 1.8446744073709552e+21}};
+  lp.constraint_matrix.coeffRef(0, 0) = -2.7369110631344083e-48;
+  lp.constraint_matrix.coeffRef(0, 1) = 1.0;
+  lp.constraint_matrix.makeCompressed();
+
+  PrimalDualHybridGradientParams params;
+  params.mutable_termination_criteria()->set_iteration_limit(40);
+  auto& presolve_options = *params.mutable_presolve_options();
+  presolve_options.set_use_glop(true);
+  presolve_options.mutable_glop_parameters()->set_solve_dual_problem(
+      operations_research::glop::GlopParameters::LET_SOLVER_DECIDE);
+  presolve_options.mutable_glop_parameters()->set_dualizer_threshold(
+      1.3574141825331e-312);
+  params.set_infinite_constraint_bound_threshold(1.34785525461908e-312);
+
+  SolverResult output = PrimalDualHybridGradient(lp, params);
+  EXPECT_THAT(
+      output.solve_log.termination_reason(),
+      AnyOf(TERMINATION_REASON_ITERATION_LIMIT, TERMINATION_REASON_OPTIMAL));
+}
+
 // `FeasibilityPolishingTest` sets `params_` for feasibility polishing, and to
 // avoid PDLP features that disrupt a simple analysis of the performance with
 // and without feasibility polishing (primal weight adjustments, dynamic step
@@ -1837,7 +1864,7 @@ TEST_F(FeasibilityPolishingPrimalTest,
       output.solve_log.iteration_stats_size() - 1);
   EXPECT_GE(total_feasibility_iterations, 1);
   EXPECT_GE(last_stats.iteration_number(), 1);
-  // This checks that `iteration_count()` includes both the main and feasiblity
+  // This checks that `iteration_count()` includes both the main and feasibility
   // iterations, and that `iteration_stats.iteration_number()` does not include
   // work from feasibility iterations.
   EXPECT_EQ(last_stats.iteration_number() + total_feasibility_iterations,

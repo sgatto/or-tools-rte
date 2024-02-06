@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,14 +19,12 @@
 #include <string>
 #include <vector>
 
-#include "absl/strings/match.h"
-#include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/flags/flag.h"
+#include "absl/log/check.h"
 #include "absl/strings/string_view.h"
 #include "ortools/flatzinc/model.h"
-#include "ortools/graph/cliques.h"
-#include "ortools/util/saturated_arithmetic.h"
-#include "ortools/util/vector_map.h"
+#include "ortools/util/logging.h"
 
 ABSL_FLAG(bool, fz_floats_are_ints, false,
           "Interpret floats as integers in all variables and constraints.");

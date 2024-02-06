@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -984,7 +984,6 @@ bool DisjunctivePrecedences::PropagateSubwindow() {
                                   helper_->SizeMin(task_time.task_index)});
     }
     DCHECK_GE(task_set_.SortedTasks().size(), 2);
-    if (integer_trail_->IsCurrentlyIgnored(var)) continue;
 
     // TODO(user): Only use the min_offset of the critical task? Or maybe do a
     // more general computation to find by how much we can push var?

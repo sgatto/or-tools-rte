@@ -1,4 +1,4 @@
-# Copyright 2010-2022 Google LLC
+# Copyright 2010-2024 Google LLC
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -93,18 +93,30 @@ cc_library(
         "//ortools/base",
         "//ortools/base:stl_util",
         "//ortools/linear_solver",
+        "//ortools/sat:cp_model",
         "//ortools/util:bitset",
         "//ortools/util:time_limit",
     ],
 )
 
 # Weighted set covering
+proto_library(
+    name = "set_cover_proto",
+    srcs = ["set_cover.proto"],
+    deps = ["//ortools/util:int128_proto"],
+)
+
+cc_proto_library(
+    name = "set_cover_cc_proto",
+    deps = [":set_cover_proto"],
+)
 
 cc_library(
     name = "set_cover_model",
     srcs = ["set_cover_model.cc"],
     hdrs = ["set_cover_model.h"],
     deps = [
+        ":set_cover_cc_proto",
         "//ortools/lp_data:base",
         "@com_google_absl//absl/log:check",
     ],
@@ -119,6 +131,18 @@ cc_library(
         "//ortools/base",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
+    ],
+)
+
+cc_library(
+    name = "set_cover_mip",
+    srcs = ["set_cover_mip.cc"],
+    hdrs = ["set_cover_mip.h"],
+    deps = [
+        ":set_cover_ledger",
+        "//ortools/linear_solver",
+        "//ortools/lp_data:base",
         "@com_google_absl//absl/log:check",
     ],
 )
@@ -139,6 +163,7 @@ cc_library(
     srcs = ["set_cover.cc"],
     hdrs = ["set_cover.h"],
     deps = [
+        ":set_cover_mip",
         ":set_cover_utils",
         "//ortools/base",
         "@com_google_absl//absl/log",

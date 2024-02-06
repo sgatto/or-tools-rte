@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -359,6 +359,7 @@ PY_CONVERT(MPVariable);
 %unignore operations_research::MPSolver::NumVariables;
 %unignore operations_research::MPSolver::EnableOutput;  // No unit test
 %unignore operations_research::MPSolver::SuppressOutput;  // No unit test
+%rename (IsMip) operations_research::MPSolver::IsMIP;
 %rename (LookupConstraint)
     operations_research::MPSolver::LookupConstraintOrNull;
 %rename (LookupVariable) operations_research::MPSolver::LookupVariableOrNull;

@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "absl/log/check.h"
+#include "absl/types/span.h"
 #include "ortools/base/types.h"
 #include "ortools/constraint_solver/constraint_solver.h"
 #include "ortools/constraint_solver/constraint_solveri.h"
@@ -771,7 +772,7 @@ bool SwapIndexPairOperator::MakeNextNeighbor(Assignment* delta,
   while (true) {
     RevertChanges(true);
 
-    if (pair_index_ < pairs_.size()) {
+    if (pair_index_ >= pairs_.size()) return false;
       const int64_t path =
           ignore_path_vars_ ? 0LL : Value(first_active_ + number_of_nexts_);
       const int64_t prev_first = prevs_[first_active_];
@@ -805,12 +806,14 @@ bool SwapIndexPairOperator::MakeNextNeighbor(Assignment* delta,
         ++first_index_;
         if (first_index_ >= pickup_alternatives.size()) {
           first_index_ = 0;
+        while (true) {
           ++pair_index_;
-          UpdateActiveNodes();
+          if (!UpdateActiveNodes()) break;
+          if (first_active_ != -1 && second_active_ != -1) {
+            break;
         }
       }
-    } else {
-      return false;
+      }
     }
 
     if (ApplyChanges(delta, deltadelta)) return true;
@@ -843,6 +846,13 @@ bool SwapIndexPairOperator::UpdateActiveNodes() {
   if (pair_index_ < pairs_.size()) {
     const auto& [pickup_alternatives, delivery_alternatives] =
         pairs_[pair_index_];
+    first_active_ = -1;
+    second_active_ = -1;
+    if (pickup_alternatives.size() == 1 && delivery_alternatives.size() == 1) {
+      // When there are no alternatives, the pair should be ignored whether
+      // there are active nodes or not.
+      return true;
+    }
     for (const int64_t first : pickup_alternatives) {
       if (Value(first) != first) {
         first_active_ = first;
@@ -1179,7 +1189,7 @@ void ExchangeSubtrip::SetPath(const std::vector<int64_t>& path, int path_id) {
 }
 
 namespace {
-bool VectorContains(const std::vector<int64_t>& values, int64_t target) {
+bool VectorContains(absl::Span<const int64_t> values, int64_t target) {
   return std::find(values.begin(), values.end(), target) != values.end();
 }
 }  // namespace

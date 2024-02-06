@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
@@ -139,16 +140,6 @@ bool ImpliedBounds::Add(Literal literal, IntegerLiteral integer_literal) {
     }
   }
 
-  // While the code above deal correctly with optionality, we cannot just
-  // register a literal => bound for an optional variable, because the equation
-  // might end up in the LP which do not handle them correctly.
-  //
-  // TODO(user): Maybe we can handle this case somehow, as long as every
-  // constraint using this bound is protected by the variable optional literal.
-  // Alternativelly we could disable optional variable when we are at
-  // linearization level 2.
-  if (integer_trail_->IsOptional(var)) return true;
-
   // The information below is currently only used for cuts.
   // So no need to store it if we aren't going to use it.
   if (parameters_.linearization_level() == 0) return true;
@@ -232,7 +223,7 @@ void ElementEncodings::Add(IntegerVariable var,
   var_to_index_to_element_encodings_[var][exactly_one_index] = encoding;
 }
 
-const absl::flat_hash_map<int, std::vector<ValueLiteralPair>>&
+const absl::btree_map<int, std::vector<ValueLiteralPair>>&
 ElementEncodings::Get(IntegerVariable var) {
   const auto& it = var_to_index_to_element_encodings_.find(var);
   if (it == var_to_index_to_element_encodings_.end()) {
@@ -359,12 +350,12 @@ std::vector<LiteralValueValue> ProductDecomposer::TryToDecompose(
   }
 
   // Fill in the encodings for the left variable.
-  const absl::flat_hash_map<int, std::vector<ValueLiteralPair>>&
-      left_encodings = element_encodings_->Get(left.var);
+  const absl::btree_map<int, std::vector<ValueLiteralPair>>& left_encodings =
+      element_encodings_->Get(left.var);
 
   // Fill in the encodings for the right variable.
-  const absl::flat_hash_map<int, std::vector<ValueLiteralPair>>&
-      right_encodings = element_encodings_->Get(right.var);
+  const absl::btree_map<int, std::vector<ValueLiteralPair>>& right_encodings =
+      element_encodings_->Get(right.var);
 
   std::vector<int> compatible_keys;
   for (const auto& [index, encoding] : left_encodings) {
@@ -494,7 +485,9 @@ bool ProductDecomposer::TryToLinearize(const AffineExpression& left,
 }
 
 ProductDetector::ProductDetector(Model* model)
-    : enabled_(model->GetOrCreate<SatParameters>()->linearization_level() > 1),
+    : enabled_(
+          model->GetOrCreate<SatParameters>()->detect_linearized_product() &&
+          model->GetOrCreate<SatParameters>()->linearization_level() > 1),
       sat_solver_(model->GetOrCreate<SatSolver>()),
       trail_(model->GetOrCreate<Trail>()),
       integer_trail_(model->GetOrCreate<IntegerTrail>()),

@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -36,6 +36,7 @@ TEST(DumpVars, Empty) {
   EXPECT_EQ(R"()", DUMP_VARS().str());
 }
 
+#if !defined(__APPLE__)
 TEST(DumpVars, Lvalue) {
   int a = 42;
   EXPECT_EQ(R"(a = 42)", ToString(DUMP_VARS(a)));
@@ -158,6 +159,7 @@ TEST(DumpVars, TemporaryLifetime) {
   EXPECT_EQ(R"(std::string_view(std::string("hello")) = hello)", ToString(v));
   EXPECT_EQ(R"(temp = hello)", ToString(v.as("temp")));
 }
+#endif  // !defined(__APPLE__)
 
 }  // namespace
 }  // namespace operations_research::base

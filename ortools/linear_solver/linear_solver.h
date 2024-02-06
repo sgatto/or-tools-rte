@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -237,8 +237,6 @@ class MPSolver {
     XPRESS_MIXED_INTEGER_PROGRAMMING = 102,
     COPT_LINEAR_PROGRAMMING = 103,
     COPT_MIXED_INTEGER_PROGRAMMING = 104,
-    SIRIUS_LINEAR_PROGRAMMING = 105,
-    SIRIUS_MIXED_INTEGER_PROGRAMMING = 106,
   };
 
   /// Create a solver with the given name and underlying solver backend.
@@ -580,12 +578,15 @@ class MPSolver {
    * from `MPSolver::Solve()` which by default sets the feasibility tolerance
    * and the gap limit (as of 2020/02/11, to 1e-7 and 0.0001, respectively).
    */
+  ABSL_DEPRECATED("Prefer SolveMPModel() from solve_mp_model.h.")
   static void SolveWithProto(const MPModelRequest& model_request,
                              MPSolutionResponse* response,
                              // `interrupt` is non-const because the internal
                              // solver may set it to true itself, in some cases.
                              std::atomic<bool>* interrupt = nullptr);
 
+  ABSL_DEPRECATED(
+      "Prefer SolverTypeSupportsInterruption() from solve_mp_model.h.")
   static bool SolverTypeSupportsInterruption(
       const MPModelRequest::SolverType solver) {
     // Interruption requires that MPSolver::InterruptSolve is supported for the
@@ -699,6 +700,7 @@ class MPSolver {
 
   // Gives some brief (a few lines, at most) human-readable information about
   // the given request, suitable for debug logging.
+  ABSL_DEPRECATED("Prefer MPModelRequestLoggingInfo() from solve_mp_model.h.")
   static std::string GetMPModelRequestLoggingInfo(
       const MPModelRequest& request);
 
@@ -874,7 +876,6 @@ class MPSolver {
   friend class GurobiInterface;
   friend class CplexInterface;
   friend class XpressInterface;
-  friend class SiriusInterface;
   friend class SLMInterface;
   friend class MPSolverInterface;
   friend class GLOPInterface;
@@ -1107,7 +1108,6 @@ class MPObjective {
   friend class GurobiInterface;
   friend class CplexInterface;
   friend class XpressInterface;
-  friend class SiriusInterface;
   friend class GLOPInterface;
   friend class BopInterface;
   friend class SatInterface;
@@ -1222,7 +1222,6 @@ class MPVariable {
   friend class GurobiInterface;
   friend class CplexInterface;
   friend class XpressInterface;
-  friend class SiriusInterface;
   friend class GLOPInterface;
   friend class MPVariableSolutionValueTest;
   friend class BopInterface;
@@ -1372,7 +1371,6 @@ class MPConstraint {
   friend class GurobiInterface;
   friend class CplexInterface;
   friend class XpressInterface;
-  friend class SiriusInterface;
   friend class GLOPInterface;
   friend class BopInterface;
   friend class SatInterface;

@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <deque>
 #include <functional>
@@ -32,12 +33,15 @@
 #include <utility>
 #include <vector>
 
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
+#include "absl/hash/hash.h"
 #include "absl/log/check.h"
 #include "absl/log/die_if_null.h"
+#include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -48,7 +52,6 @@
 #include "ortools/base/logging.h"
 #include "ortools/base/map_util.h"
 #include "ortools/base/mathutil.h"
-#include "ortools/base/murmur.h"
 #include "ortools/base/protoutil.h"
 #include "ortools/base/stl_util.h"
 #include "ortools/base/strong_vector.h"
@@ -59,6 +62,7 @@
 #include "ortools/constraint_solver/routing_decision_builders.h"
 #include "ortools/constraint_solver/routing_enums.pb.h"
 #include "ortools/constraint_solver/routing_filters.h"
+#include "ortools/constraint_solver/routing_ils.h"
 #include "ortools/constraint_solver/routing_index_manager.h"
 #include "ortools/constraint_solver/routing_insertion_lns.h"
 #include "ortools/constraint_solver/routing_lp_scheduling.h"
@@ -166,13 +170,11 @@ const Assignment* RoutingModel::PackCumulsOfOptimizerDimensionsFromAssignment(
   // original_assignment.
   Assignment* packed_assignment = solver_->MakeAssignment();
   packed_assignment->Add(Nexts());
-  // Also keep the Resource values for dimensions with a single resource group.
+  // Also keep the Resource values to avoid unnecessary re-optimizations.
   for (const RoutingDimension* const dimension : dimensions_) {
-    const std::vector<int>& resource_groups =
-        GetDimensionResourceGroupIndices(dimension);
-    if (resource_groups.size() == 1) {
+    for (int rg_index : GetDimensionResourceGroupIndices(dimension)) {
       DCHECK(HasLocalCumulOptimizer(*dimension));
-      packed_assignment->Add(resource_vars_[resource_groups[0]]);
+      packed_assignment->Add(resource_vars_[rg_index]);
     }
   }
   packed_assignment->CopyIntersection(original_assignment);
@@ -913,7 +915,7 @@ int RoutingModel::GetLocalCumulOptimizerIndex(
   return optimizer_index;
 }
 
-bool RoutingModel::HasDimension(const std::string& dimension_name) const {
+bool RoutingModel::HasDimension(absl::string_view dimension_name) const {
   return dimension_name_to_index_.contains(dimension_name);
 }
 
@@ -978,18 +980,22 @@ const ResourceGroup::Attributes& ResourceGroup::Resource::GetDefaultAttributes()
   return *kAttributes;
 }
 
-int RoutingModel::AddResourceGroup() {
+ResourceGroup* RoutingModel::AddResourceGroup() {
   DCHECK_EQ(resource_groups_.size(), resource_vars_.size());
   // Create and add the resource group.
-  resource_groups_.push_back(std::make_unique<ResourceGroup>(this));
+  // Using 'new' to access private constructor.
+  resource_groups_.push_back(absl::WrapUnique(new ResourceGroup(this)));
+  const int rg_index = resource_groups_.back()->Index();
+  DCHECK_EQ(rg_index, resource_groups_.size() - 1);
+
   // Create and add the resource vars (the proper variable bounds and
   // constraints are set up when closing the model).
-  const int rg_index = resource_groups_.size() - 1;
   resource_vars_.push_back({});
   solver_->MakeIntVarArray(vehicles(), -1, std::numeric_limits<int64_t>::max(),
                            absl::StrCat("Resources[", rg_index, "]"),
                            &resource_vars_.back());
-  return rg_index;
+
+  return resource_groups_[rg_index].get();
 }
 
 int ResourceGroup::AddResource(Attributes attributes,
@@ -1016,12 +1022,120 @@ void ResourceGroup::NotifyVehicleRequiresAResource(int vehicle) {
   vehicles_requiring_resource_.push_back(vehicle);
 }
 
+namespace {
+struct ResourceClass {
+  using DimensionIndex = RoutingModel::DimensionIndex;
+  /// The attributes for each dimension.
+  absl::StrongVector<DimensionIndex, ResourceGroup::Attributes>
+      dimension_attributes;
+  /// Assignability of vehicles.
+  std::vector<bool> assignable_to_vehicle;
+
+  // Make ResourceClass absl::Hash-able.
+  friend bool operator==(const ResourceClass& c1, const ResourceClass& c2) {
+    return c1.dimension_attributes == c2.dimension_attributes &&
+           c1.assignable_to_vehicle == c2.assignable_to_vehicle;
+  }
+  template <typename H>
+  friend H AbslHashValue(H h, const ResourceClass& c) {
+    return H::combine(std::move(h), c.dimension_attributes,
+                      c.assignable_to_vehicle);
+  }
+};
+}  // namespace
+
+void ResourceGroup::ComputeResourceClasses() {
+  resource_class_indices_.assign(resources_.size(), ResourceClassIndex(-1));
+  resource_indices_per_class_.clear();
+
+  absl::flat_hash_map<ResourceClass, ResourceClassIndex> resource_class_map;
+  for (int r = 0; r < resources_.size(); ++r) {
+    ResourceClass resource_class;
+
+    absl::StrongVector<DimensionIndex, Attributes>& dim_attributes =
+        resource_class.dimension_attributes;
+    dim_attributes.resize(model_->dimensions_.size(), Attributes());
+    for (const auto& [dim_index, attributes] :
+         resources_[r].dimension_attributes_) {
+      dim_attributes[dim_index] = attributes;
+    }
+
+    std::vector<bool>& assignable_to_v = resource_class.assignable_to_vehicle;
+    assignable_to_v.resize(model_->vehicles_, false);
+    for (int v : vehicles_requiring_resource_) {
+      assignable_to_v[v] = IsResourceAllowedForVehicle(r, v);
+    }
+
+    DCHECK_EQ(resource_indices_per_class_.size(), resource_class_map.size());
+    const ResourceClassIndex num_resource_classes(resource_class_map.size());
+    ResourceClassIndex& resource_class_index = resource_class_indices_[r];
+    resource_class_index = gtl::LookupOrInsert(
+        &resource_class_map, resource_class, num_resource_classes);
+    if (resource_class_index == num_resource_classes) {
+      // New resource class.
+      resource_indices_per_class_.push_back({});
+    }
+    resource_indices_per_class_[resource_class_index].push_back(r);
+  }
+}
+
 const std::vector<int>& RoutingModel::GetDimensionResourceGroupIndices(
     const RoutingDimension* dimension) const {
   DCHECK(closed_);
   const DimensionIndex dim = GetDimensionIndex(dimension->name());
   DCHECK_NE(dim, kNoDimension);
   return dimension_resource_group_indices_[dim];
+}
+
+RoutingModel::SecondaryOptimizer::SecondaryOptimizer(
+    RoutingModel* model, RoutingSearchParameters* search_parameters,
+    int64_t solve_period)
+    : model_(model),
+      search_parameters_(search_parameters),
+      solve_period_(solve_period) {
+  DCHECK(model_ != nullptr);
+  state_ = model_->solver()->MakeAssignment();
+  Assignment::IntContainer* container = state_->MutableIntVarContainer();
+  const std::vector<IntVar*> nexts = model_->Nexts();
+  container->Resize(nexts.size());
+  for (int i = 0; i < nexts.size(); ++i) {
+    IntVar* next_var = nexts[i];
+    container->AddAtPosition(next_var, i)->SetValue(i);
+    var_to_index_[next_var] = i;
+  }
+  IntVar* cost = (model_->CostVar() != nullptr)
+                     ? model_->CostVar()
+                     : model_->solver()->MakeIntConst(0);
+  state_->AddObjective(cost);
+}
+
+bool RoutingModel::SecondaryOptimizer::Solve(
+    const std::vector<RoutingModel::VariableValuePair>& in_state,
+    std::vector<RoutingModel::VariableValuePair>* out_state) {
+  if (solve_period_ <= 0) return false;
+  if (call_count_ == solve_period_) {
+    call_count_ = 0;
+  } else {
+    call_count_++;
+  }
+  out_state->clear();
+  Assignment::IntContainer* container = state_->MutableIntVarContainer();
+  for (const auto [var, value] : in_state) {
+    container->MutableElement(var)->SetValue(value);
+  }
+  if (call_count_ != 0) return false;
+  absl::flat_hash_set<IntVar*> touched;
+  const Assignment* solution = model_->FastSolveFromAssignmentWithParameters(
+      state_, *search_parameters_,
+      /*check_solution_in_cp=*/false, &touched);
+  if (solution == nullptr || touched.empty()) return false;
+  for (IntVar* var : touched) {
+    const int index = var_to_index_[var];
+    const int64_t value = solution->Value(var);
+    out_state->push_back({index, value});
+    container->MutableElement(index)->SetValue(value);
+  }
+  return true;
 }
 
 void RoutingModel::SetArcCostEvaluatorOfAllVehicles(int evaluator_index) {
@@ -1092,23 +1206,67 @@ void RoutingModel::SetAmortizedCostFactorsOfVehicle(
   quadratic_cost_factor_of_vehicle_[vehicle] = quadratic_cost_factor;
 }
 
-namespace {
-// Some C++ versions used in the open-source export don't support comparison
-// functors for STL containers; so we need a comparator class instead.
-struct CostClassComparator {
-  bool operator()(const RoutingModel::CostClass& a,
-                  const RoutingModel::CostClass& b) const {
-    return RoutingModel::CostClass::LessThan(a, b);
-  }
-};
+void RoutingModel::FinalizeAllowedVehicles() {
+  const std::vector<RoutingDimension*> unary_dimensions = GetUnaryDimensions();
 
-struct VehicleClassComparator {
-  bool operator()(const RoutingModel::VehicleClass& a,
-                  const RoutingModel::VehicleClass& b) const {
-    return RoutingModel::VehicleClass::LessThan(a, b);
+  // Pre-process the node transit values to find the maximum transit for each
+  // unary dimension to avoid unnecessary computations below.
+  std::vector<int64_t> dimension_max_node_transit(unary_dimensions.size(), 0);
+  for (int i = 0; i < unary_dimensions.size(); ++i) {
+    int64_t& max_node_transit = dimension_max_node_transit[i];
+    const RoutingDimension* dimension = unary_dimensions[i];
+    for (int node = 0; node < Size(); ++node) {
+      if (IsStart(node)) continue;
+      for (int callback_index : dimension->class_evaluators_) {
+        max_node_transit = std::max(
+            max_node_transit,
+            std::abs(UnaryTransitCallbackOrNull(callback_index)(node)));
+      }
+    }
   }
-};
-}  // namespace
+
+  for (int vehicle = 0; vehicle < vehicles_; ++vehicle) {
+    if (CheckLimit()) {
+      return;
+    }
+    for (int i = 0; i < unary_dimensions.size(); ++i) {
+      const RoutingDimension* const dim = unary_dimensions[i];
+      const TransitCallback1& transit_evaluator =
+          dim->GetUnaryTransitEvaluator(vehicle);
+      DCHECK(transit_evaluator != nullptr);
+      const int64_t capacity = dim->vehicle_capacities()[vehicle];
+      if (capacity >= dimension_max_node_transit[i]) continue;
+
+      for (int node = 0; node < Size(); ++node) {
+        if (IsStart(node)) continue;
+        absl::flat_hash_set<int>& allowed_vehicles = allowed_vehicles_[node];
+        if (!allowed_vehicles.empty() && !allowed_vehicles.contains(vehicle)) {
+          // The vehicle is already forbidden for this node.
+          continue;
+        }
+        if (std::abs(transit_evaluator(node)) <= capacity) continue;
+
+        // 'node' can't be served by 'vehicle', so we remove the 'vehicle'
+        // from the node's set of allowed_vehicles_.
+        if (allowed_vehicles.empty()) {
+          // NOTE: An empty set of "allowed_vehicles" actually means all
+          // vehicles are allowed for this node, so we lazily fill
+          // "allowed_vehicles" with all vehicles here to then remove the
+          // 'vehicle' from the set.
+          for (int v = 0; v < vehicles_; ++v) allowed_vehicles.insert(v);
+        }
+        allowed_vehicles.erase(vehicle);
+        if (allowed_vehicles.empty()) {
+          // If after erasing 'vehicle', allowed_vehicles becomes empty, it
+          // means no vehicle is allowed for this node, so we insert the value
+          // -1 in allowed_vehicles to distinguish with an empty
+          // allowed_vehicles which actually means all vehicles allowed.
+          allowed_vehicles.insert(-1);
+        }
+      }
+    }
+  }
+}
 
 // static
 const RoutingModel::CostClassIndex RoutingModel::kCostClassIndexOfZeroCost =
@@ -1120,8 +1278,7 @@ void RoutingModel::ComputeCostClasses(
   cost_classes_.reserve(vehicles_);
   cost_classes_.clear();
   cost_class_index_of_vehicle_.assign(vehicles_, CostClassIndex(-1));
-  std::map<CostClass, CostClassIndex, CostClassComparator> cost_class_map;
-
+  absl::flat_hash_map<CostClass, CostClassIndex> cost_class_map;
   // Pre-insert the built-in cost class 'zero cost' with index 0.
   const CostClass zero_cost_class(0);
   cost_classes_.push_back(zero_cost_class);
@@ -1143,10 +1300,8 @@ void RoutingModel::ComputeCostClasses(
       cost_class.dimension_transit_evaluator_class_and_cost_coefficient
           .push_back({dimension->vehicle_to_class(vehicle), coeff, dimension});
     }
-    std::sort(cost_class.dimension_transit_evaluator_class_and_cost_coefficient
-                  .begin(),
-              cost_class.dimension_transit_evaluator_class_and_cost_coefficient
-                  .end());
+    absl::c_sort(
+        cost_class.dimension_transit_evaluator_class_and_cost_coefficient);
     // Try inserting the CostClass, if it's not already present.
     const CostClassIndex num_cost_classes(cost_classes_.size());
     const CostClassIndex cost_class_index =
@@ -1175,33 +1330,74 @@ void RoutingModel::ComputeCostClasses(
                                                 : GetCostClassesCount() <= 2;
 }
 
-bool RoutingModel::VehicleClass::LessThan(const VehicleClass& a,
-                                          const VehicleClass& b) {
-  return std::tie(a.cost_class_index, a.fixed_cost, a.used_when_empty,
-                  a.start_equivalence_class, a.end_equivalence_class,
-                  a.unvisitable_nodes_fprint, a.dimension_start_cumuls_min,
-                  a.dimension_start_cumuls_max, a.dimension_end_cumuls_min,
-                  a.dimension_end_cumuls_max, a.dimension_capacities,
-                  a.dimension_evaluator_classes,
-                  a.required_resource_group_indices) <
-         std::tie(b.cost_class_index, b.fixed_cost, b.used_when_empty,
-                  b.start_equivalence_class, b.end_equivalence_class,
-                  b.unvisitable_nodes_fprint, b.dimension_start_cumuls_min,
-                  b.dimension_start_cumuls_max, b.dimension_end_cumuls_min,
-                  b.dimension_end_cumuls_max, b.dimension_capacities,
-                  b.dimension_evaluator_classes,
-                  b.required_resource_group_indices);
+namespace {
+
+struct VehicleClass {
+  using DimensionIndex = RoutingModel::DimensionIndex;
+  /// The cost class of the vehicle.
+  RoutingModel::CostClassIndex cost_class_index;
+  /// Contrarily to CostClass, here we need strict equivalence.
+  int64_t fixed_cost;
+  /// Whether or not the vehicle is used when empty.
+  bool used_when_empty;
+  /// Vehicle start and end equivalence classes. Currently if two vehicles
+  /// have different start/end nodes which are "physically" located at the
+  /// same place, these two vehicles will be considered as non-equivalent
+  /// unless the two indices are in the same class.
+  // TODO(user): Find equivalent start/end nodes wrt dimensions and
+  // callbacks.
+  int start_equivalence_class;
+  int end_equivalence_class;
+  /// Bounds of cumul variables at start and end vehicle nodes.
+  /// dimension_{start,end}_cumuls_{min,max}[d] is the bound for dimension d.
+  absl::StrongVector<DimensionIndex, int64_t> dimension_start_cumuls_min;
+  absl::StrongVector<DimensionIndex, int64_t> dimension_start_cumuls_max;
+  absl::StrongVector<DimensionIndex, int64_t> dimension_end_cumuls_min;
+  absl::StrongVector<DimensionIndex, int64_t> dimension_end_cumuls_max;
+  absl::StrongVector<DimensionIndex, int64_t> dimension_capacities;
+  /// dimension_evaluators[d]->Run(from, to) is the transit value of arc
+  /// from->to for a dimension d.
+  absl::StrongVector<DimensionIndex, int64_t> dimension_evaluator_classes;
+  /// Hash of the visitability of (non-start/end) nodes.
+  uint64_t visitable_nodes_hash;
+  /// Hash of allowed resources for each resource group, or -1 if a given
+  /// resource group isn't required by the vehicle.
+  std::vector<int64_t> group_allowed_resources_hash;
+
+  friend bool operator==(const VehicleClass& c1, const VehicleClass& c2) {
+    return c1.cost_class_index == c2.cost_class_index &&
+           c1.fixed_cost == c2.fixed_cost &&
+           c1.used_when_empty == c2.used_when_empty &&
+           c1.start_equivalence_class == c2.start_equivalence_class &&
+           c1.end_equivalence_class == c2.end_equivalence_class &&
+           c1.dimension_start_cumuls_min == c2.dimension_start_cumuls_min &&
+           c1.dimension_start_cumuls_max == c2.dimension_start_cumuls_max &&
+           c1.dimension_end_cumuls_min == c2.dimension_end_cumuls_min &&
+           c1.dimension_end_cumuls_max == c2.dimension_end_cumuls_max &&
+           c1.dimension_capacities == c2.dimension_capacities &&
+           c1.dimension_evaluator_classes == c2.dimension_evaluator_classes &&
+           c1.visitable_nodes_hash == c2.visitable_nodes_hash &&
+           c1.group_allowed_resources_hash == c2.group_allowed_resources_hash;
 }
+  template <typename H>
+  friend H AbslHashValue(H h, const VehicleClass& c) {
+    return H::combine(std::move(h), c.cost_class_index, c.fixed_cost,
+                      c.used_when_empty, c.start_equivalence_class,
+                      c.end_equivalence_class, c.dimension_start_cumuls_min,
+                      c.dimension_start_cumuls_max, c.dimension_end_cumuls_min,
+                      c.dimension_end_cumuls_max, c.dimension_capacities,
+                      c.dimension_evaluator_classes, c.visitable_nodes_hash,
+                      c.group_allowed_resources_hash);
+  }
+};
+
+}  // namespace
 
 void RoutingModel::ComputeVehicleClasses() {
-  vehicle_classes_.reserve(vehicles_);
-  vehicle_classes_.clear();
   vehicle_class_index_of_vehicle_.assign(vehicles_, VehicleClassIndex(-1));
-  std::map<VehicleClass, VehicleClassIndex, VehicleClassComparator>
-      vehicle_class_map;
-  const int nodes_unvisitability_num_bytes = (vehicle_vars_.size() + 7) / 8;
-  std::unique_ptr<char[]> nodes_unvisitability_bitmask(
-      new char[nodes_unvisitability_num_bytes]);
+  absl::flat_hash_map<VehicleClass, VehicleClassIndex> vehicle_class_map;
+  std::vector<bool> node_is_visitable(Size(), true);
+  const auto bool_vec_hash = absl::Hash<std::vector<bool>>();
   for (int vehicle = 0; vehicle < vehicles(); ++vehicle) {
     VehicleClass vehicle_class;
     vehicle_class.cost_class_index = cost_class_index_of_vehicle_[vehicle];
@@ -1225,33 +1421,45 @@ void RoutingModel::ComputeVehicleClasses() {
       vehicle_class.dimension_evaluator_classes.push_back(
           dimension->vehicle_to_class(vehicle));
     }
-    memset(nodes_unvisitability_bitmask.get(), 0,
-           nodes_unvisitability_num_bytes);
-    for (int index = 0; index < vehicle_vars_.size(); ++index) {
-      IntVar* const vehicle_var = vehicle_vars_[index];
-      if (!IsStart(index) && !IsEnd(index) &&
-          (!vehicle_var->Contains(vehicle) ||
-           !IsVehicleAllowedForIndex(vehicle, index))) {
-        nodes_unvisitability_bitmask[index / CHAR_BIT] |= 1U
-                                                          << (index % CHAR_BIT);
+    node_is_visitable.assign(Size(), true);
+    for (int index = 0; index < Size(); ++index) {
+      DCHECK(!IsEnd(index));
+      if (IsStart(index)) continue;
+      if (!vehicle_vars_[index]->Contains(vehicle) ||
+          !IsVehicleAllowedForIndex(vehicle, index)) {
+        node_is_visitable[index] = false;
       }
     }
-    vehicle_class.unvisitable_nodes_fprint = util_hash::MurmurHash64(
-        nodes_unvisitability_bitmask.get(), nodes_unvisitability_num_bytes);
-    for (int rg_index = 0; rg_index < resource_groups_.size(); rg_index++) {
-      if (resource_groups_[rg_index]->VehicleRequiresAResource(vehicle)) {
-        vehicle_class.required_resource_group_indices.push_back(rg_index);
-      }
-    }
+    vehicle_class.visitable_nodes_hash = bool_vec_hash(node_is_visitable);
 
-    const VehicleClassIndex num_vehicle_classes(vehicle_classes_.size());
-    const VehicleClassIndex vehicle_class_index = gtl::LookupOrInsert(
-        &vehicle_class_map, vehicle_class, num_vehicle_classes);
-    if (vehicle_class_index == num_vehicle_classes) {  // New vehicle class
-      vehicle_classes_.push_back(vehicle_class);
+    std::vector<int64_t>& allowed_resources_hash =
+        vehicle_class.group_allowed_resources_hash;
+    allowed_resources_hash.reserve(resource_groups_.size());
+    for (int rg_index = 0; rg_index < resource_groups_.size(); rg_index++) {
+      const ResourceGroup& resource_group = *resource_groups_[rg_index];
+      if (!resource_group.VehicleRequiresAResource(vehicle)) {
+        allowed_resources_hash.push_back(-1);
+        continue;
+      }
+      const std::vector<IntVar*>& resource_vars = resource_vars_[rg_index];
+      std::vector<bool> resource_allowed_for_vehicle(resource_group.Size(),
+                                                     true);
+      for (int resource = 0; resource < resource_group.Size(); resource++) {
+        if (!resource_vars[vehicle]->Contains(resource) ||
+            !resource_group.IsResourceAllowedForVehicle(resource, vehicle)) {
+          resource_allowed_for_vehicle[resource] = false;
     }
-    vehicle_class_index_of_vehicle_[vehicle] = vehicle_class_index;
-  }
+      }
+      allowed_resources_hash.push_back(
+          bool_vec_hash(resource_allowed_for_vehicle));
+    }
+    DCHECK_EQ(allowed_resources_hash.size(), resource_groups_.size());
+
+    const VehicleClassIndex num_vehicle_classes(vehicle_class_map.size());
+    vehicle_class_index_of_vehicle_[vehicle] = gtl::LookupOrInsert(
+        &vehicle_class_map, vehicle_class, num_vehicle_classes);
+    }
+  num_vehicle_classes_ = vehicle_class_map.size();
 }
 
 void RoutingModel::ComputeVehicleTypes() {
@@ -1298,6 +1506,12 @@ void RoutingModel::ComputeVehicleTypes() {
     }
     vehicles_per_vehicle_class[vehicle_class].push_back(v);
     type_index_of_vehicle[v] = index;
+  }
+}
+
+void RoutingModel::ComputeResourceClasses() {
+  for (auto& resource_group : resource_groups_) {
+    resource_group->ComputeResourceClasses();
   }
 }
 
@@ -1540,6 +1754,7 @@ void RoutingModel::AddSoftSameVehicleConstraint(
 
 void RoutingModel::SetAllowedVehiclesForIndex(const std::vector<int>& vehicles,
                                               int64_t index) {
+  DCHECK(!closed_);
   auto& allowed_vehicles = allowed_vehicles_[index];
   allowed_vehicles.clear();
   for (int vehicle : vehicles) {
@@ -1941,6 +2156,13 @@ void RoutingModel::DetectImplicitPickupAndDeliveries() {
   }
 }
 
+namespace {
+absl::Duration GetTimeLimit(const RoutingSearchParameters& parameters) {
+  if (!parameters.has_time_limit()) return absl::InfiniteDuration();
+  return util_time::DecodeGoogleApiProto(parameters.time_limit()).value();
+}
+}  // namespace
+
 void RoutingModel::CloseModelWithParameters(
     const RoutingSearchParameters& parameters) {
   std::string error = FindErrorInRoutingSearchParameters(parameters);
@@ -1954,6 +2176,11 @@ void RoutingModel::CloseModelWithParameters(
     return;
   }
   closed_ = true;
+
+  // Setup the time limit to be able to check it while closing the model.
+  GetOrCreateLimit()->UpdateLimits(
+      GetTimeLimit(parameters), std::numeric_limits<int64_t>::max(),
+      std::numeric_limits<int64_t>::max(), parameters.solution_limit());
 
   for (RoutingDimension* const dimension : dimensions_) {
     dimension->CloseModel(UsesLightPropagation(parameters));
@@ -1969,9 +2196,13 @@ void RoutingModel::CloseModelWithParameters(
     }
   }
 
+  // NOTE: FinalizeAllowedVehicles() must be called *after* calling
+  // CloseModel() on dimensions and *before* ComputeVehicleClasses().
+  FinalizeAllowedVehicles();
   ComputeCostClasses(parameters);
   ComputeVehicleClasses();
   ComputeVehicleTypes();
+  ComputeResourceClasses();
   FinalizeVisitTypes();
   vehicle_start_class_callback_ = [this](int64_t start) {
     return GetVehicleStartClass(start);
@@ -1981,7 +2212,7 @@ void RoutingModel::CloseModelWithParameters(
 
   const int size = Size();
 
-  // Vehicle variable constraints
+  // Vehicle variable constraints.
   for (int i = 0; i < vehicles_; ++i) {
     const int64_t start = Start(i);
     const int64_t end = End(i);
@@ -1996,6 +2227,19 @@ void RoutingModel::CloseModelWithParameters(
     } else {
       solver_->AddConstraint(solver_->MakeEquality(
           vehicle_active_[i], vehicle_route_considered_[i]));
+    }
+  }
+  // Reduce domains of vehicle variables.
+  for (int i = 0; i < allowed_vehicles_.size(); ++i) {
+    const auto& allowed_vehicles = allowed_vehicles_[i];
+    if (!allowed_vehicles.empty()) {
+      std::vector<int64_t> vehicles;
+      vehicles.reserve(allowed_vehicles.size() + 1);
+      vehicles.push_back(-1);
+      for (int vehicle : allowed_vehicles) {
+        vehicles.push_back(vehicle);
+      }
+      solver_->AddConstraint(solver_->MakeMemberCt(VehicleVar(i), vehicles));
     }
   }
 
@@ -2031,20 +2275,6 @@ void RoutingModel::CloseModelWithParameters(
     if (infeasible_policies != nullptr &&
         infeasible_policies->contains(index_to_type_policy_[i])) {
       active_[i]->SetValue(0);
-    }
-  }
-
-  // Reduce domains of vehicle variables
-  for (int i = 0; i < allowed_vehicles_.size(); ++i) {
-    const auto& allowed_vehicles = allowed_vehicles_[i];
-    if (!allowed_vehicles.empty()) {
-      std::vector<int64_t> vehicles;
-      vehicles.reserve(allowed_vehicles.size() + 1);
-      vehicles.push_back(-1);
-      for (int vehicle : allowed_vehicles) {
-        vehicles.push_back(vehicle);
-      }
-      solver_->AddConstraint(solver_->MakeMemberCt(VehicleVar(i), vehicles));
     }
   }
 
@@ -2465,16 +2695,10 @@ const Assignment* RoutingModel::SolveWithParameters(
 }
 
 namespace {
-absl::Duration GetTimeLimit(const RoutingSearchParameters& parameters) {
-  if (!parameters.has_time_limit()) return absl::InfiniteDuration();
-  return util_time::DecodeGoogleApiProto(parameters.time_limit()).value();
-}
-
 absl::Duration GetLnsTimeLimit(const RoutingSearchParameters& parameters) {
   if (!parameters.has_lns_time_limit()) return absl::InfiniteDuration();
   return util_time::DecodeGoogleApiProto(parameters.lns_time_limit()).value();
 }
-
 }  // namespace
 
 namespace {
@@ -2518,7 +2742,7 @@ bool RoutingModel::AppendAssignmentIfFeasible(
 }
 
 void RoutingModel::LogSolution(const RoutingSearchParameters& parameters,
-                               const std::string& description,
+                               absl::string_view description,
                                int64_t solution_cost, int64_t start_time_ms) {
   const std::string memory_str = MemoryUsage();
   const double cost_scaling_factor = parameters.log_cost_scaling_factor();
@@ -2541,6 +2765,59 @@ const Assignment* RoutingModel::SolveFromAssignmentWithParameters(
                                             solutions);
 }
 
+const Assignment* RoutingModel::FastSolveFromAssignmentWithParameters(
+    const Assignment* assignment,
+    const RoutingSearchParameters& search_parameters, bool check_solution_in_cp,
+    absl::flat_hash_set<IntVar*>* touched) {
+  if (search_parameters.local_search_metaheuristic() !=
+          LocalSearchMetaheuristic::GREEDY_DESCENT &&
+      search_parameters.local_search_metaheuristic() !=
+          LocalSearchMetaheuristic::AUTOMATIC) {
+    LOG(DFATAL) << "local_search_metaheuristic value unsupported: "
+                << search_parameters.local_search_metaheuristic();
+    return nullptr;
+  }
+  absl::flat_hash_set<RoutingLocalSearchOperator> operators_to_consider;
+  // Consider all operators for the primary LS phase.
+  for (int op = 0; op < LOCAL_SEARCH_OPERATOR_COUNTER; ++op) {
+    operators_to_consider.insert(RoutingLocalSearchOperator(op));
+  }
+  const int64_t start_time_ms = solver_->wall_time();
+  QuietCloseModelWithParameters(search_parameters);
+  if (status_ == ROUTING_INVALID) return nullptr;
+  status_ = ROUTING_NOT_SOLVED;
+  if (assignment == nullptr) return nullptr;
+  limit_->UpdateLimits(
+      GetTimeLimit(search_parameters), std::numeric_limits<int64_t>::max(),
+      std::numeric_limits<int64_t>::max(), search_parameters.solution_limit());
+  std::vector<SearchMonitor*> monitors = {metaheuristic_};
+  if (search_log_ != nullptr) monitors.push_back(search_log_);
+  Assignment* solution = solver()->RunUncheckedLocalSearch(
+      assignment,
+      GetOrCreateLocalSearchFilterManager(search_parameters,
+                                          {/*filter_objective=*/true,
+                                           /*filter_with_cp_solver=*/false}),
+      GetNeighborhoodOperators(search_parameters, operators_to_consider),
+      monitors, limit_, touched);
+  const absl::Duration elapsed_time =
+      absl::Milliseconds(solver_->wall_time() - start_time_ms);
+  if (solution != nullptr) {
+    if (!check_solution_in_cp ||
+        CheckIfAssignmentIsFeasible(*solution,
+                                    /*call_at_solution_monitors=*/false)) {
+      status_ = ROUTING_SUCCESS;
+    }
+  }
+  if (status_ != ROUTING_SUCCESS) {
+    if (elapsed_time >= GetTimeLimit(search_parameters)) {
+      status_ = ROUTING_FAIL_TIMEOUT;
+    } else {
+      status_ = ROUTING_FAIL;
+    }
+  }
+  return solution;
+}
+
 const Assignment* RoutingModel::SolveFromAssignmentsWithParameters(
     const std::vector<const Assignment*>& assignments,
     const RoutingSearchParameters& parameters,
@@ -2552,6 +2829,7 @@ const Assignment* RoutingModel::SolveFromAssignmentsWithParameters(
   if (status_ == ROUTING_INVALID) {
     return nullptr;
   }
+  status_ = ROUTING_NOT_SOLVED;
 
   // Detect infeasibilities at the root of the search tree.
   if (!solver_->CheckConstraint(solver_->MakeTrueConstraint())) {
@@ -2773,6 +3051,87 @@ const Assignment* RoutingModel::SolveFromAssignmentsWithParameters(
     }
     return nullptr;
   }
+}
+
+const Assignment* RoutingModel::SolveWithIteratedLocalSearch(
+    const RoutingSearchParameters& parameters) {
+  const int64_t start_time_ms = solver_->wall_time();
+  QuietCloseModelWithParameters(parameters);
+
+  // Build an initial solution.
+  solver_->Solve(solve_db_, monitors_);
+  uint64_t explored_solutions = solver_->solutions();
+
+  Assignment* best_solution = collect_assignments_->last_solution_or_null();
+  if (!best_solution) {
+    return nullptr;
+  }
+
+  auto ruin = std::make_unique<CloseRoutesRemovalRuinProcedure>(
+      this, /*TODO(user): use a parameter*/ 2);
+
+  // Heuristic used for the recreate step.
+  auto recreate = std::make_unique<LocalCheapestInsertionFilteredHeuristic>(
+      this, [this]() { return CheckLimit(time_buffer_); },
+      absl::bind_front(&RoutingModel::GetArcCostForVehicle, this),
+      parameters.local_cheapest_insertion_pickup_delivery_strategy(),
+      GetOrCreateLocalSearchFilterManager(parameters,
+                                          {/*filter_objective=*/false,
+                                           /*filter_with_cp_solver=*/false}),
+      bin_capacities_.get());
+
+  DecisionBuilder* ruin_and_recreate_db = MakeRuinAndRecreateDecisionBuilder(
+      this, best_solution, std::move(ruin), std::move(recreate));
+
+  // TODO(user): This lambda can probably be refactored into a function as a
+  // similar version in used in another place.
+  const auto update_time_limits = [this, start_time_ms, &parameters]() {
+    const absl::Duration elapsed_time =
+        absl::Milliseconds(solver_->wall_time() - start_time_ms);
+    const absl::Duration time_left = GetTimeLimit(parameters) - elapsed_time;
+    if (time_left < absl::ZeroDuration()) {
+      return false;
+    }
+    limit_->UpdateLimits(time_left, std::numeric_limits<int64_t>::max(),
+                         std::numeric_limits<int64_t>::max(),
+                         parameters.solution_limit());
+    DCHECK_NE(ls_limit_, nullptr);
+    ls_limit_->UpdateLimits(time_left, std::numeric_limits<int64_t>::max(),
+                            std::numeric_limits<int64_t>::max(), 1);
+    // TODO(user): Come up with a better formula. Ideally this should be
+    // calibrated in the first solution strategies.
+    time_buffer_ = std::min(absl::Seconds(1), time_left * 0.05);
+    return true;
+  };
+
+  while (update_time_limits() &&
+         explored_solutions < parameters.solution_limit()) {
+    solver_->Solve(ruin_and_recreate_db, monitors_);
+    explored_solutions += solver_->solutions();
+
+    Assignment* neighbor = collect_assignments_->last_solution_or_null();
+    if (!neighbor) {
+      continue;
+    }
+
+    assignment_->CopyIntersection(neighbor);
+
+    solver_->Solve(improve_db_, monitors_);
+
+    neighbor = collect_assignments_->last_solution_or_null();
+    if (!neighbor) {
+      continue;
+    }
+
+    if (neighbor->ObjectiveValue() < best_solution->ObjectiveValue()) {
+      // Note that the ruin_and_recreate_db is using best_solution as reference
+      // assignment. By updating best_solution here we thus also keep the
+      // ruin_and_recreate_db reference assignment up to date.
+      best_solution->CopyIntersection(neighbor);
+    }
+  }
+
+  return best_solution;
 }
 
 void RoutingModel::SetAssignmentFromOtherModelAssignment(
@@ -4690,6 +5049,16 @@ std::vector<RoutingDimension*> RoutingModel::GetDimensionsWithSoftOrSpanCosts()
   return dimensions;
 }
 
+std::vector<RoutingDimension*> RoutingModel::GetUnaryDimensions() const {
+  std::vector<RoutingDimension*> unary_dimensions;
+  for (RoutingDimension* dim : dimensions_) {
+    if (dim->IsUnary()) {
+      unary_dimensions.push_back(dim);
+    }
+  }
+  return unary_dimensions;
+}
+
 std::vector<const RoutingDimension*>
 RoutingModel::GetDimensionsWithGlobalCumulOptimizers() const {
   DCHECK(closed_);
@@ -4957,6 +5326,17 @@ void RoutingModel::CreateFirstSolutionDecisionBuilders(
   }
 
   // Local cheapest insertion
+  std::function<bool(const std::vector<VariableValuePair>&,
+                     std::vector<VariableValuePair>*)>
+      optimize_on_insertion;
+  if (secondary_model_ != nullptr) {
+    secondary_model_->QuietCloseModelWithParameters(secondary_parameters_);
+    secondary_optimizer_ = std::make_unique<SecondaryOptimizer>(
+        secondary_model_, &secondary_parameters_,
+        search_parameters.first_solution_optimization_period());
+    optimize_on_insertion = absl::bind_front(&SecondaryOptimizer::Solve,
+                                             secondary_optimizer_.get());
+  }
   const RoutingSearchParameters::PairInsertionStrategy lci_pair_strategy =
       search_parameters.local_cheapest_insertion_pickup_delivery_strategy();
   first_solution_filtered_decision_builders_
@@ -4970,7 +5350,7 @@ void RoutingModel::CreateFirstSolutionDecisionBuilders(
               GetOrCreateLocalSearchFilterManager(
                   search_parameters, {/*filter_objective=*/false,
                                       /*filter_with_cp_solver=*/false}),
-              bin_capacities_.get());
+              bin_capacities_.get(), optimize_on_insertion);
   IntVarFilteredDecisionBuilder* const strong_lci =
       CreateIntVarFilteredDecisionBuilder<
           LocalCheapestInsertionFilteredHeuristic>(
@@ -4981,7 +5361,7 @@ void RoutingModel::CreateFirstSolutionDecisionBuilders(
           GetOrCreateLocalSearchFilterManager(search_parameters,
                                               {/*filter_objective=*/false,
                                                /*filter_with_cp_solver=*/true}),
-          bin_capacities_.get());
+          bin_capacities_.get(), optimize_on_insertion);
   first_solution_decision_builders_
       [FirstSolutionStrategy::LOCAL_CHEAPEST_INSERTION] = solver_->Try(
           first_solution_filtered_decision_builders_
@@ -5002,7 +5382,7 @@ void RoutingModel::CreateFirstSolutionDecisionBuilders(
               GetOrCreateLocalSearchFilterManager(
                   search_parameters, {/*filter_objective=*/true,
                                       /*filter_with_cp_solver=*/false}),
-              bin_capacities_.get());
+              bin_capacities_.get(), optimize_on_insertion);
   IntVarFilteredDecisionBuilder* const strong_lcci =
       CreateIntVarFilteredDecisionBuilder<
           LocalCheapestInsertionFilteredHeuristic>(
@@ -5010,7 +5390,7 @@ void RoutingModel::CreateFirstSolutionDecisionBuilders(
           GetOrCreateLocalSearchFilterManager(search_parameters,
                                               {/*filter_objective=*/true,
                                                /*filter_with_cp_solver=*/true}),
-          bin_capacities_.get());
+          bin_capacities_.get(), optimize_on_insertion);
   first_solution_decision_builders_
       [FirstSolutionStrategy::LOCAL_CHEAPEST_COST_INSERTION] = solver_->Try(
           first_solution_filtered_decision_builders_
@@ -5314,6 +5694,7 @@ void RoutingModel::SetupMetaheuristics(
     LOG(WARNING) << LocalSearchMetaheuristic::Value_Name(metaheuristic)
                  << " specified without sane timeout: solve may run forever.";
   }
+  metaheuristic_ = optimize;
   monitors_.push_back(optimize);
   secondary_ls_monitors_.push_back(optimize);
 }
@@ -5368,7 +5749,8 @@ void RoutingModel::SetupTrace(
       search_log_parameters.display_callback = nullptr;
     }
     search_log_parameters.display_on_new_solutions_only = false;
-    monitors_.push_back(solver_->MakeSearchLog(search_log_parameters));
+    search_log_ = solver_->MakeSearchLog(search_log_parameters);
+    monitors_.push_back(search_log_);
     secondary_ls_monitors_.push_back(
         solver_->MakeSearchLog(search_log_parameters));
   }

@@ -1,4 +1,4 @@
-# Copyright 2010-2022 Google LLC
+# Copyright 2010-2024 Google LLC
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -198,7 +198,6 @@ cc_library(
         "//ortools/util:sorted_interval_list",
         "//ortools/util:string_array",
         "//ortools/util:tuple_set",
-        "//ortools/util:vector_map",
         #        "@com_google_re2//:re2",
         "@com_google_absl//absl/status",
         #        "//util/textprogressbar",
@@ -327,6 +326,7 @@ cc_library(
         "routing_decision_builders.cc",
         "routing_filters.cc",
         "routing_flow.cc",
+        "routing_ils.cc",
         "routing_insertion_lns.cc",
         "routing_lp_scheduling.cc",
         "routing_sat.cc",
@@ -337,6 +337,7 @@ cc_library(
         "routing_constraints.h",
         "routing_decision_builders.h",
         "routing_filters.h",
+        "routing_ils.h",
         "routing_insertion_lns.h",
         "routing_lp_scheduling.h",
         "routing_search.h",

@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "ortools/constraint_solver/constraint_solver.h"
 #include "ortools/constraint_solver/constraint_solveri.h"
@@ -194,7 +195,7 @@ class ResourceAssignmentConstraint : public Constraint {
 
     std::vector<std::vector<int64_t>> assignment_costs(model_.vehicles());
     for (int v : resource_group_.GetVehiclesRequiringAResource()) {
-      if (!ComputeVehicleToResourcesAssignmentCosts(
+      if (!ComputeVehicleToResourceClassAssignmentCosts(
               v, resource_group_, next, transit,
               /*optimize_vehicle_costs*/ false,
               model_.GetMutableLocalCumulLPOptimizer(dimension),
@@ -207,7 +208,7 @@ class ResourceAssignmentConstraint : public Constraint {
     // of running the full min-cost flow.
     return ComputeBestVehicleToResourceAssignment(
                resource_group_.GetVehiclesRequiringAResource(),
-               resource_group_.Size(),
+               resource_group_.GetResourceIndicesPerClass(),
                [&assignment_costs](int v) { return &assignment_costs[v]; },
                nullptr) >= 0;
   }
@@ -228,6 +229,16 @@ class ResourceAssignmentConstraint : public Constraint {
       s->AddConstraint(
           s->MakeEquality(model_.VehicleRouteConsideredVar(v),
                           s->MakeIsDifferentCstVar(resource_var, -1)));
+
+      // Reduce domain of resource_var.
+      const absl::flat_hash_set<int>& resources_marked_allowed =
+          resource_group_.GetResourcesMarkedAllowedForVehicle(v);
+      if (!resources_marked_allowed.empty()) {
+        std::vector<int> allowed_resources(resources_marked_allowed.begin(),
+                                           resources_marked_allowed.end());
+        allowed_resources.push_back(-1);
+        s->AddConstraint(s->MakeMemberCt(resource_var, allowed_resources));
+      }
 
       // Add dimension cumul constraints.
       for (const RoutingModel::DimensionIndex dim_index :
@@ -603,13 +614,20 @@ class PathSpansAndTotalSlacks : public Constraint {
     // Then arrival time - departure time is a valid lower bound of span.
     // First reasoning: start - end - start
     {
+      // At each iteration, arrival time is a lower bound of path[i]'s cumul,
+      // so we opportunistically tighten the variable.
+      // This helps reduce the amount of inter-constraint propagation.
       int64_t arrival_time = dimension_->CumulVar(start)->Min();
       for (int i = 1; i < path_.size(); ++i) {
         arrival_time =
             std::max(CapAdd(arrival_time,
                             dimension_->FixedTransitVar(path_[i - 1])->Min()),
                      dimension_->CumulVar(path_[i])->Min());
+        dimension_->CumulVar(path_[i])->SetMin(arrival_time);
       }
+      // At each iteration, departure_time is the latest time at each the
+      // vehicle can leave to reach the earliest feasible vehicle end. Thus it
+      // is not an upper bound of the cumul, we cannot tighten the variable.
       int64_t departure_time = arrival_time;
       for (int i = path_.size() - 2; i >= 0; --i) {
         departure_time =
@@ -626,14 +644,18 @@ class PathSpansAndTotalSlacks : public Constraint {
     }
     // Second reasoning: end - start - end
     {
+      // At each iteration, use departure time to tighten opportunistically.
       int64_t departure_time = dimension_->CumulVar(end)->Max();
       for (int i = path_.size() - 2; i >= 0; --i) {
-        const int curr_node = path_[i];
         departure_time =
             std::min(CapSub(departure_time,
-                            dimension_->FixedTransitVar(curr_node)->Min()),
-                     dimension_->CumulVar(curr_node)->Max());
+                            dimension_->FixedTransitVar(path_[i])->Min()),
+                     dimension_->CumulVar(path_[i])->Max());
+        dimension_->CumulVar(path_[i])->SetMax(departure_time);
       }
+      // Symmetrically to the first reasoning, arrival_time is the earliest
+      // possible arrival for the latest departure of vehicle start.
+      // It cannot be used to tighten the successive cumul variables.
       int arrival_time = departure_time;
       for (int i = 1; i < path_.size(); ++i) {
         arrival_time =

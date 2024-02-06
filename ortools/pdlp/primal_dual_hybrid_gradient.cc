@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -729,7 +729,7 @@ SolverResult ErrorSolverResult(const TerminationReason reason,
 // bounds, variable bound gaps, and objective vector values that PDLP can handle
 // but that cause problems for other code such as glop's presolve.
 std::optional<SolverResult> CheckProblemStats(
-    const QuadraticProgramStats& problem_stats,
+    const QuadraticProgramStats& problem_stats, const double objective_offset,
     bool check_excessively_small_values) {
   const double kExcessiveInputValue = 1e50;
   const double kExcessivelySmallInputValue = 1e-50;
@@ -844,6 +844,17 @@ std::optional<SolverResult> CheckProblemStats(
                  << " and smallest non-zero absolute value "
                  << problem_stats.variable_bound_gaps_min()
                  << "; performance may suffer.";
+  }
+  if (std::isnan(objective_offset)) {
+    return ErrorSolverResult(TERMINATION_REASON_INVALID_PROBLEM,
+                             "Objective offset is NAN.");
+  }
+  if (std::abs(objective_offset) > kExcessiveInputValue) {
+    return ErrorSolverResult(
+        TERMINATION_REASON_INVALID_PROBLEM,
+        absl::StrCat("Objective offset ", objective_offset,
+                     " has absolute value which exceeds limit of ",
+                     kExcessiveInputValue, "."));
   }
   if (std::isnan(problem_stats.objective_vector_l2_norm())) {
     return ErrorSolverResult(TERMINATION_REASON_INVALID_PROBLEM,
@@ -960,11 +971,30 @@ SolverResult PreprocessSolver::PreprocessAndSolve(
   *solve_log.mutable_params() = params;
   sharded_qp_.ReplaceLargeConstraintBoundsWithInfinity(
       params.infinite_constraint_bound_threshold());
+  if (!HasValidBounds(sharded_qp_)) {
+    return ErrorSolverResult(
+        TERMINATION_REASON_INVALID_PROBLEM,
+        "The input problem has invalid bounds (after replacing large "
+        "constraint bounds with infinity): some variable or constraint has "
+        "lower_bound > upper_bound, lower_bound == inf, or upper_bound == "
+        "-inf.");
+  }
+  if (Qp().objective_matrix.has_value() &&
+      !sharded_qp_.PrimalSharder().ParallelTrueForAllShards(
+          [&](const Sharder::Shard& shard) -> bool {
+            return (shard(Qp().objective_matrix->diagonal()).array() >= 0.0)
+                .all();
+          })) {
+    return ErrorSolverResult(TERMINATION_REASON_INVALID_PROBLEM,
+                             "The objective is not convex (i.e., the objective "
+                             "matrix contains negative or NAN entries).");
+  }
   *solve_log.mutable_original_problem_stats() = ComputeStats(sharded_qp_);
   const QuadraticProgramStats& original_problem_stats =
       solve_log.original_problem_stats();
-  if (auto maybe_result = CheckProblemStats(
-          original_problem_stats, params.presolve_options().use_glop());
+  if (auto maybe_result =
+          CheckProblemStats(original_problem_stats, Qp().objective_offset,
+                            params.presolve_options().use_glop());
       maybe_result.has_value()) {
     return *maybe_result;
   }
@@ -1459,7 +1489,9 @@ PreprocessSolver::UpdateIterationStatsAndCheckTermination(
                      POINT_TYPE_AVERAGE_ITERATE, last_primal_start_point,
                      last_dual_start_point, stats);
   }
-  if (working_primal_delta != nullptr && working_dual_delta != nullptr) {
+  // Undoing presolve doesn't work for iterate differences.
+  if (!presolve_info_.has_value() && working_primal_delta != nullptr &&
+      working_dual_delta != nullptr) {
     ComputeConvergenceAndInfeasibilityFromWorkingSolution(
         params, *working_primal_delta, *working_dual_delta,
         POINT_TYPE_ITERATE_DIFFERENCE, nullptr,
@@ -1531,6 +1563,9 @@ void PreprocessSolver::ComputeConvergenceAndInfeasibilityFromWorkingSolution(
       EpsilonRatio(criteria.eps_optimal_dual_residual_absolute(),
                    criteria.eps_optimal_dual_residual_relative());
   if (presolve_info_.has_value()) {
+    // Undoing presolve doesn't make sense for iterate differences.
+    CHECK_NE(candidate_type, POINT_TYPE_ITERATE_DIFFERENCE);
+
     PrimalAndDualSolution original = RecoverOriginalSolution(
         {.primal_solution = working_primal, .dual_solution = working_dual});
     if (convergence_information != nullptr) {
@@ -2115,7 +2150,7 @@ IterationStats AddWorkStats(IterationStats stats,
 // Accumulates and returns the work (`iteration_number`,
 // `cumulative_kkt_matrix_passes`, `cumulative_rejected_steps`, and
 // `cumulative_time_sec`) from `solve_log.feasibility_polishing_details`.
-IterationStats WorkFromFeasiblityPolishing(const SolveLog& solve_log) {
+IterationStats WorkFromFeasibilityPolishing(const SolveLog& solve_log) {
   IterationStats result;
   for (const FeasibilityPolishingDetails& feasibility_polishing_detail :
        solve_log.feasibility_polishing_details()) {
@@ -2408,7 +2443,7 @@ InnerStepOutcome Solver::TakeConstantSizeStep() {
 IterationStats Solver::TotalWorkSoFar(const SolveLog& solve_log) const {
   IterationStats stats = CreateSimpleIterationStats(RESTART_CHOICE_NO_RESTART);
   IterationStats full_stats =
-      AddWorkStats(stats, WorkFromFeasiblityPolishing(solve_log));
+      AddWorkStats(stats, WorkFromFeasibilityPolishing(solve_log));
   return full_stats;
 }
 
@@ -2712,7 +2747,7 @@ SolverResult Solver::Solve(const IterationType iteration_type,
   num_rejected_steps_ = 0;
 
   IterationStats work_from_feasibility_polishing =
-      WorkFromFeasiblityPolishing(solve_log);
+      WorkFromFeasibilityPolishing(solve_log);
   for (iterations_completed_ = 0;; ++iterations_completed_) {
     // This code performs the logic of the major iterations and termination
     // checks. It may modify the current solution and primal weight (e.g., when
@@ -2745,7 +2780,7 @@ SolverResult Solver::Solve(const IterationType iteration_type,
       }
       next_feasibility_polishing_iteration *= 2;
       // Update work to include new feasibility phases.
-      work_from_feasibility_polishing = WorkFromFeasiblityPolishing(solve_log);
+      work_from_feasibility_polishing = WorkFromFeasibilityPolishing(solve_log);
     }
 
     // TODO(user): If we use a step rule that could reject many steps in a
@@ -2805,19 +2840,9 @@ SolverResult PrimalDualHybridGradient(
     return ErrorSolverResult(TERMINATION_REASON_INVALID_PROBLEM,
                              dimensions_status.ToString());
   }
-  if (!HasValidBounds(qp)) {
-    return ErrorSolverResult(TERMINATION_REASON_INVALID_PROBLEM,
-                             "The input problem has inconsistent bounds.");
-  }
   if (qp.objective_scaling_factor == 0) {
     return ErrorSolverResult(TERMINATION_REASON_INVALID_PROBLEM,
                              "The objective scaling factor cannot be zero.");
-  }
-  if (qp.objective_matrix.has_value() &&
-      qp.objective_matrix->diagonal().minCoeff() < 0.0) {
-    return ErrorSolverResult(TERMINATION_REASON_INVALID_PROBLEM,
-                             "The objective is not convex (i.e., the objective "
-                             "matrix contains negative entries).");
   }
   if (params.use_feasibility_polishing() && !IsLinearProgram(qp)) {
     return ErrorSolverResult(

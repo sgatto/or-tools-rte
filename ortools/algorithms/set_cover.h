@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,9 +14,12 @@
 #ifndef OR_TOOLS_ALGORITHMS_SET_COVER_H_
 #define OR_TOOLS_ALGORITHMS_SET_COVER_H_
 
+#include <cstddef>
 #include <vector>
 
+#include "absl/types/span.h"
 #include "ortools/algorithms/set_cover_ledger.h"
+#include "ortools/algorithms/set_cover_model.h"
 #include "ortools/algorithms/set_cover_utils.h"
 
 namespace operations_research {
@@ -94,13 +97,19 @@ class RandomSolutionGenerator {
 // remaining uncovered elements as possible for the least possible cost per
 // element and iterate.
 //
-// The following paper dives into the details of this class of algorithms.
+// The following papers dive into the details of this class of algorithms.
+//
 // Neal E. Young, Greedy Set-Cover Algorithms (1974-1979, Chvatal,
 // Johnson, Lovasz, Stein), in Kao, ed., Encyclopedia of Algorithms. Draft at:
 // http://www.cs.ucr.edu/~neal/non_arxiv/Young08SetCover.pdf
 //
 // G. Cormode, H. Karloff, A. Wirth (2010) "Set Cover Algorithms for Very Large
 // Datasets", CIKM'10, ACM, 2010.
+//
+// Tommaso Adamo, Gianpaolo Ghiani, Emanuela Guerriero and Deborah Pareo "A
+// Surprisal-Based Greedy Heuristic for the Set Covering Problem". Algorithms,
+// 2023.
+
 class GreedySolutionGenerator {
  public:
   explicit GreedySolutionGenerator(SetCoverLedger* ledger)
@@ -141,7 +150,7 @@ class SteepestSearch {
   // TODO(user): Add time-outs and exit with a partial solution.
   bool NextSolution(int num_iterations);
 
-  bool NextSolution(const std::vector<SubsetIndex>& focus, int num_iterations);
+  bool NextSolution(absl::Span<const SubsetIndex> focus, int num_iterations);
 
  private:
   // Updates the priorities on the impacted_subsets.
@@ -220,7 +229,7 @@ class GuidedTabuSearch {
 
  private:
   // Updates the penalties on the subsets in focus.
-  void UpdatePenalties(const std::vector<SubsetIndex>& focus);
+  void UpdatePenalties(absl::Span<const SubsetIndex> focus);
 
   // The ledger on which the algorithm will run.
   SetCoverLedger* ledger_;
@@ -258,13 +267,27 @@ class GuidedTabuSearch {
   TabuList<SubsetIndex> tabu_list_;
 };
 
-// Randomly clears a proportion (between 0 and 1) of the solution.
-std::vector<SubsetIndex> ClearProportionRandomly(double proportion,
-                                                 SetCoverLedger* ledger);
+// Randomly clears a proportion num_subsets variables in the solution.
+// Returns a list of subset indices to be potentially reused as a focus.
+std::vector<SubsetIndex> ClearRandomSubsets(std::size_t num_subsets,
+                                            SetCoverLedger* ledger);
 
-std::vector<SubsetIndex> ClearProportionRandomly(
-    const std::vector<SubsetIndex>& focus, double proportion,
+// Same as above, but clears the subset indices in focus.
+std::vector<SubsetIndex> ClearRandomSubsets(absl::Span<const SubsetIndex> focus,
+                                            std::size_t num_subsets,
+                                            SetCoverLedger* ledger);
+
+// Clears the variables that cover the most covered elements. This is capped
+// by num_subsets.
+// Return the list of chosen subset indices to be potentially reused as a focus.
+std::vector<SubsetIndex> ClearMostCoveredElements(std::size_t num_subsets,
+                                                  SetCoverLedger* ledger);
+
+// Same as above, but clears the subset indices in focus.
+std::vector<SubsetIndex> ClearMostCoveredElements(
+    absl::Span<const SubsetIndex> focus, std::size_t num_subsets,
     SetCoverLedger* ledger);
+
 }  // namespace operations_research
 
 #endif  // OR_TOOLS_ALGORITHMS_SET_COVER_H_

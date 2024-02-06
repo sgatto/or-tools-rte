@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -29,7 +29,7 @@ void SubsetPriorityQueue::Add(SubsetIndex subset, Cost priority) {
 
 void SubsetPriorityQueue::ChangePriority(SubsetIndex subset, Cost priority) {
   // TODO(user): see if the reference to ledger_ can be removed.
-  if (ledger_->marginal_impacts(subset) != 0) {
+  if (ledger_->marginal_impacts()[subset] != 0) {
     pq_elements_[subset].SetPriority(priority);
     max_pq_.NoteChangedPriority(&pq_elements_[subset]);
     DVLOG(1) << "Priority of subset " << subset << " is now "

@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -25,6 +25,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "ortools/base/map_util.h"
 #include "ortools/constraint_solver/constraint_solver.h"
 #include "ortools/constraint_solver/routing.h"
@@ -477,9 +478,8 @@ bool ConvertToSolution(const CpSolverResponse& response,
 // cumul constraints and cumul bounds.
 void AddGeneralizedDimensions(
     const RoutingModel& model, const ArcVarMap& arc_vars,
-    const std::vector<absl::flat_hash_map<int, int>>& vehicle_performs_node,
-    const std::vector<absl::flat_hash_map<int, int>>&
-        vehicle_class_performs_arc,
+    absl::Span<const absl::flat_hash_map<int, int>> vehicle_performs_node,
+    absl::Span<const absl::flat_hash_map<int, int>> vehicle_class_performs_arc,
     CpModelProto* cp_model) {
   const int num_cp_nodes = model.Nexts().size() + model.vehicles() + 1;
   for (const RoutingDimension* dimension : model.GetDimensions()) {

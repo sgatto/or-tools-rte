@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -230,12 +230,78 @@ bool MakeBoundsOfIntegerVariablesInteger(const SatParameters& params,
       return false;
     }
   }
-
-  if (num_changes > 0) {
-    SOLVER_LOG(logger, "Changed ", num_changes,
-               " bounds of integer variables to integer values");
-  }
   return true;
+}
+
+void ChangeLargeBoundsToInfinity(double max_magnitude, MPModelProto* mp_model,
+                                 SolverLogger* logger) {
+  const int num_variables = mp_model->variable_size();
+  int64_t num_variable_bounds_pushed_to_infinity = 0;
+  const double infinity = std::numeric_limits<double>::infinity();
+  for (int i = 0; i < num_variables; ++i) {
+    MPVariableProto* mp_var = mp_model->mutable_variable(i);
+    const double lb = mp_var->lower_bound();
+    if (std::isfinite(lb) && lb < -max_magnitude) {
+      ++num_variable_bounds_pushed_to_infinity;
+      mp_var->set_lower_bound(-infinity);
+    }
+
+    const double ub = mp_var->upper_bound();
+    if (std::isfinite(ub) && ub > max_magnitude) {
+      ++num_variable_bounds_pushed_to_infinity;
+      mp_var->set_upper_bound(infinity);
+    }
+  }
+
+  if (num_variable_bounds_pushed_to_infinity > 0) {
+    SOLVER_LOG(logger, "Pushed ", num_variable_bounds_pushed_to_infinity,
+               " variable bounds to +/-infinity");
+  }
+
+  const int num_constraints = mp_model->constraint_size();
+  int64_t num_constraint_bounds_pushed_to_infinity = 0;
+
+  for (int i = 0; i < num_constraints; ++i) {
+    MPConstraintProto* mp_ct = mp_model->mutable_constraint(i);
+    const double lb = mp_ct->lower_bound();
+    if (std::isfinite(lb) && lb < -max_magnitude) {
+      ++num_constraint_bounds_pushed_to_infinity;
+      mp_ct->set_lower_bound(-infinity);
+    }
+
+    const double ub = mp_ct->upper_bound();
+    if (std::isfinite(ub) && ub > max_magnitude) {
+      ++num_constraint_bounds_pushed_to_infinity;
+      mp_ct->set_upper_bound(infinity);
+    }
+  }
+
+  for (int i = 0; i < mp_model->general_constraint_size(); ++i) {
+    if (mp_model->general_constraint(i).general_constraint_case() !=
+        MPGeneralConstraintProto::kIndicatorConstraint) {
+      continue;
+    }
+
+    MPConstraintProto* mp_ct = mp_model->mutable_general_constraint(i)
+                                   ->mutable_indicator_constraint()
+                                   ->mutable_constraint();
+    const double lb = mp_ct->lower_bound();
+    if (std::isfinite(lb) && lb < -max_magnitude) {
+      ++num_constraint_bounds_pushed_to_infinity;
+      mp_ct->set_lower_bound(-infinity);
+    }
+
+    const double ub = mp_ct->upper_bound();
+    if (std::isfinite(ub) && ub > max_magnitude) {
+      ++num_constraint_bounds_pushed_to_infinity;
+      mp_ct->set_upper_bound(infinity);
+    }
+  }
+
+  if (num_constraint_bounds_pushed_to_infinity > 0) {
+    SOLVER_LOG(logger, "Pushed ", num_constraint_bounds_pushed_to_infinity,
+               " constraint bounds to +/-infinity");
+  }
 }
 
 void RemoveNearZeroTerms(const SatParameters& params, MPModelProto* mp_model,
@@ -816,14 +882,21 @@ double FindBestScalingAndComputeErrors(
   // error of wanted_absolute_activity_precision and still make sure we will
   // have no integer overflow.
   //
+  // Important: the loop is written in such a way that ComputeScalingErrors()
+  // is called on the last factor.
+  //
   // TODO(user): Make this faster.
   double x = std::min(scaling_factor, 1.0);
   for (; x <= scaling_factor; x *= 2) {
     ComputeScalingErrors(coefficients, lower_bounds, upper_bounds, x,
                          relative_coeff_error, scaled_sum_error);
     if (*scaled_sum_error < wanted_absolute_activity_precision * x) break;
+
+    // This could happen if we always have enough precision.
+    if (x == scaling_factor) break;
   }
   scaling_factor = x;
+  DCHECK(std::isfinite(scaling_factor));
 
   // Because we deal with an approximate input, scaling with a power of 2 might
   // not be the best choice. It is also possible user used rational coeff and
@@ -834,6 +907,7 @@ double FindBestScalingAndComputeErrors(
   // Note that if our current precisions is already above the requested one,
   // we choose integer scaling if we get a better precision.
   const double integer_factor = FindFractionalScaling(coefficients, 1e-8);
+  DCHECK(std::isfinite(integer_factor));
   if (integer_factor != 0 && integer_factor < scaling_factor) {
     double local_relative_coeff_error;
     double local_scaled_sum_error;
@@ -850,6 +924,7 @@ double FindBestScalingAndComputeErrors(
     }
   }
 
+  DCHECK(std::isfinite(scaling_factor));
   return scaling_factor;
 }
 
@@ -1423,8 +1498,8 @@ bool ConvertBinaryMPModelProtoToBooleanProblem(const MPModelProto& mp_model,
     // Abort if the variable is not binary.
     if (!is_binary) {
       LOG(WARNING) << "The variable #" << var_id << " with name "
-                   << mp_var.name() << " is not binary. "
-                   << "lb: " << lb << " ub: " << ub;
+                   << mp_var.name() << " is not binary. " << "lb: " << lb
+                   << " ub: " << ub;
       return false;
     }
   }

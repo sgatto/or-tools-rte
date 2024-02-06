@@ -1,4 +1,4 @@
-// Copyright 2010-2022 Google LLC
+// Copyright 2010-2024 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -14,10 +14,12 @@
 #include "ortools/algorithms/set_cover_ledger.h"
 
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
+#include "absl/types/span.h"
 #include "ortools/algorithms/set_cover_model.h"
 #include "ortools/base/logging.h"
 
@@ -134,13 +136,14 @@ SubsetToElementVector SetCoverLedger::ComputeMarginalImpacts(
 }
 
 Cost SetCoverLedger::ComputeCost(const SubsetBoolVector& c) const {
+  DCHECK_EQ(c.size(), model_->num_subsets());
   Cost recomputed_cost = 0;
   const SubsetCostVector& subset_costs = model_->subset_costs();
-  const SubsetIndex num_subsets(model_->num_subsets());
-  for (SubsetIndex subset(0); subset < num_subsets; ++subset) {
-    if (c[subset]) {
+  for (SubsetIndex subset(0); bool b : c) {
+    if (b) {
       recomputed_cost += subset_costs[subset];
     }
+    ++subset;
   }
   return recomputed_cost;
 }
@@ -288,7 +291,7 @@ bool SetCoverLedger::ComputeIsRemovable(SubsetIndex subset) const {
 }
 
 void SetCoverLedger::UpdateIsRemovable(
-    const std::vector<SubsetIndex>& impacted_subsets) {
+    absl::Span<const SubsetIndex> impacted_subsets) {
   for (const SubsetIndex subset : impacted_subsets) {
     is_removable_[subset] = ComputeIsRemovable(subset);
   }
@@ -323,7 +326,7 @@ bool SetCoverLedger::CheckIsRemovable() const {
 }
 
 void SetCoverLedger::UpdateMarginalImpacts(
-    const std::vector<SubsetIndex>& impacted_subsets) {
+    absl::Span<const SubsetIndex> impacted_subsets) {
   const SparseColumnView& columns = model_->columns();
   for (const SubsetIndex subset : impacted_subsets) {
     ElementIndex impact(0);
@@ -371,6 +374,32 @@ std::vector<SubsetIndex> SetCoverLedger::ComputeResettableSubsets() const {
   DCHECK_LE(focus.size(), model_->num_subsets());
   std::sort(focus.begin(), focus.end());
   return focus;
+}
+
+SetCoverSolutionResponse SetCoverLedger::ExportSolutionAsProto() const {
+  SetCoverSolutionResponse message;
+  message.set_num_subsets(is_selected_.size().value());
+  Cost lower_bound = std::numeric_limits<Cost>::max();
+  for (SubsetIndex subset(0); subset < model_->num_subsets(); ++subset) {
+    if (is_selected_[subset]) {
+      message.add_subset(subset.value());
+    }
+    lower_bound = std::min(model_->subset_costs()[subset], lower_bound);
+  }
+  message.set_cost(cost_);
+  message.set_cost_lower_bound(lower_bound);
+  return message;
+}
+
+void SetCoverLedger::ImportSolutionFromProto(
+    const SetCoverSolutionResponse& message) {
+  is_selected_.resize(SubsetIndex(message.num_subsets()), false);
+  for (auto s : message.subset()) {
+    is_selected_[SubsetIndex(s)] = true;
+  }
+  MakeDataConsistent();
+  Cost cost = message.cost();
+  CHECK_EQ(cost, cost_);
 }
 
 }  // namespace operations_research

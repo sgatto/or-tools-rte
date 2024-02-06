@@ -26,7 +26,6 @@
 #include "ortools/base/logging.h"
 #include "ortools/base/timer.h"
 #include "ortools/linear_solver/linear_solver.h"
-#include "ortools/linear_solver/xpress_interface.h"
 #include "ortools/xpress/environment.h"
 
 #define XPRS_INTEGER 'I'
@@ -204,6 +203,13 @@ void interruptXPRESS(XPRSprob& xprsProb, CUSTOM_INTERRUPT_REASON reason) {
   XPRSinterrupt(xprsProb, 1000 + reason);
 }
 
+enum XPRS_BASIS_STATUS {
+  XPRS_AT_LOWER = 0,
+  XPRS_BASIC = 1,
+  XPRS_AT_UPPER = 2,
+  XPRS_FREE_SUPER = 3
+};
+
 // In case we need to return a double but don't have a value for that
 // we just return a NaN.
 #if !defined(XPRS_NAN)
@@ -271,12 +277,13 @@ class MPCallbackWrapper {
     for (const std::exception_ptr& ex : caught_exceptions_) {
       try {
         std::rethrow_exception(ex);
-      } catch (std::exception &ex) {
+      } catch (std::exception& ex) {
         // We don't want the interface to throw exceptions, plus it causes
         // SWIG issues in Java & Python. Instead, we'll only log them.
         // (The use cases where the user has to raise an exception inside their
         // call-back does not seem to be frequent, anyway.)
-        LOG(ERROR) << "Caught exception during user-defined call-back: " << ex.what();
+        LOG(ERROR) << "Caught exception during user-defined call-back: "
+                   << ex.what();
       }
     }
     caught_exceptions_.clear();
@@ -461,7 +468,7 @@ class XpressInterface : public MPSolverInterface {
   std::vector<int> mutable initial_variables_basis_status_;
   std::vector<int> mutable initial_constraint_basis_status_;
 
-  // Set up the right-hand side of a constraint from its lower and upper bound.
+  // Setup the right-hand side of a constraint from its lower and upper bound.
   static void MakeRhs(double lb, double ub, double& rhs, char& sense,
                       double& range);
 
@@ -474,6 +481,13 @@ class XpressInterface : public MPSolverInterface {
       const std::string& parameters) override;
   MPCallback* callback_ = nullptr;
 };
+
+// Transform MPSolver basis status to XPRESS status
+static int MPSolverToXpressBasisStatus(
+    MPSolver::BasisStatus mpsolver_basis_status);
+// Transform XPRESS basis status to MPSolver basis status.
+static MPSolver::BasisStatus XpressToMPSolverBasisStatus(
+    int xpress_basis_status);
 
 static std::map<std::string, int>& getMapStringControls() {
   static std::map<std::string, int> mapControls = {
@@ -956,7 +970,7 @@ void XpressInterface::SetVariableInteger(int var_index, bool integer) {
   }
 }
 
-// Set up the right-hand side of a constraint.
+// Setup the right-hand side of a constraint.
 void XpressInterface::MakeRhs(double lb, double ub, double& rhs, char& sense,
                               double& range) {
   if (lb == ub) {
@@ -1230,7 +1244,7 @@ int64_t XpressInterface::nodes() const {
 }
 
 // Transform a XPRESS basis status to an MPSolver basis status.
-MPSolver::BasisStatus XpressToMPSolverBasisStatus(
+static MPSolver::BasisStatus XpressToMPSolverBasisStatus(
     int xpress_basis_status) {
   switch (xpress_basis_status) {
     case XPRS_AT_LOWER:
@@ -1247,7 +1261,8 @@ MPSolver::BasisStatus XpressToMPSolverBasisStatus(
   }
 }
 
-int MPSolverToXpressBasisStatus(MPSolver::BasisStatus mpsolver_basis_status) {
+static int MPSolverToXpressBasisStatus(
+    MPSolver::BasisStatus mpsolver_basis_status) {
   switch (mpsolver_basis_status) {
     case MPSolver::AT_LOWER_BOUND:
       return XPRS_AT_LOWER;
@@ -1351,7 +1366,7 @@ void XpressInterface::ExtractNewVariables() {
       obj[j] = solver_->objective_->GetCoefficient(var);
     }
 
-    // Arrays for modifying the problem are set up. Update the index
+    // Arrays for modifying the problem are setup. Update the index
     // of variables that will get extracted now. Updating indices
     // _before_ the actual extraction makes things much simpler in
     // case we support incremental extraction.
@@ -1401,7 +1416,7 @@ void XpressInterface::ExtractNewVariables() {
           unique_ptr<int[]> cmatind(new int[nonzeros]);
           unique_ptr<double[]> cmatval(new double[nonzeros]);
 
-          // Here is how cmatbeg[] is set up:
+          // Here is how cmatbeg[] is setup:
           // - it is initialized as
           //     [ 0, 0, collen[0], collen[0]+collen[1], ... ]
           //   so that cmatbeg[j+1] tells us where in cmatind[] and
@@ -1451,12 +1466,13 @@ void XpressInterface::ExtractNewVariables() {
         CHECK_STATUS(XPRSaddcols(mLp, new_col_count, 0, obj.get(),
                                  cmatbeg.data(), cmatind.get(), cmatval.get(),
                                  lb.get(), ub.get()));
-        //TODO fixme
-        // Writing all names worsen the performance significantly
-        //if (have_names) {
-        //  CHECK_STATUS(XPRSaddnames(mLp, XPRS_NAMES_COLUMN, col_names.data(), 0,
-        //                            new_col_count - 1));
-        //}
+        // TODO fixme
+        //  Writing all names worsen the performance significantly
+        // if (have_names) {
+        //    CHECK_STATUS(XPRSaddnames(mLp, XPRS_NAMES_COLUMN,
+        //    col_names.data(), 0,
+        //                             new_col_count - 1));
+        // }
         int const cols = getnumcols(mLp);
         unique_ptr<int[]> ind(new int[new_col_count]);
         for (int j = 0; j < cols; ++j) ind[j] = j;
@@ -1719,13 +1735,14 @@ std::vector<int> XpressBasisStatusesFrom(
 
 void XpressInterface::SetStartingLpBasis(
     const std::vector<MPSolver::BasisStatus>& variable_statuses,
-    const std::vector<MPSolver::BasisStatus>& constraint_statuses){
+    const std::vector<MPSolver::BasisStatus>& constraint_statuses) {
   if (mMip) {
     LOG(DFATAL) << __FUNCTION__ << " is only available for LP problems";
     return;
   }
   initial_variables_basis_status_ = XpressBasisStatusesFrom(variable_statuses);
-  initial_constraint_basis_status_ = XpressBasisStatusesFrom(constraint_statuses);
+  initial_constraint_basis_status_ =
+      XpressBasisStatusesFrom(constraint_statuses);
 }
 
 bool XpressInterface::readParameters(std::istream& is, char sep) {
@@ -1838,7 +1855,8 @@ MPSolver::ResultStatus XpressInterface::Solve(MPSolverParameters const& param) {
 
   // Load basis if present
   // TODO : check number of variables / constraints
-  if (!mMip && !initial_variables_basis_status_.empty() && !initial_constraint_basis_status_.empty()) {
+  if (!mMip && !initial_variables_basis_status_.empty() &&
+      !initial_constraint_basis_status_.empty()) {
     CHECK_STATUS(XPRSloadbasis(mLp, initial_constraint_basis_status_.data(),
                                initial_variables_basis_status_.data()));
   }
@@ -1862,10 +1880,10 @@ MPSolver::ResultStatus XpressInterface::Solve(MPSolverParameters const& param) {
 
   int xpress_stat = 0;
   if (mMip) {
-    status = XPRSmipoptimize(mLp,"");
+    status = XPRSmipoptimize(mLp, "");
     XPRSgetintattrib(mLp, XPRS_MIPSTATUS, &xpress_stat);
   } else {
-    status = XPRSlpoptimize(mLp,"");
+    status = XPRSlpoptimize(mLp, "");
     XPRSgetintattrib(mLp, XPRS_LPSTATUS, &xpress_stat);
   }
 

@@ -1,3 +1,16 @@
+// Copyright 2010-2024 Google LLC
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <filesystem>
 #include <fstream>
 #include <locale>
@@ -5,7 +18,6 @@
 #include "gtest/gtest.h"
 #include "ortools/base/init_google.h"
 #include "ortools/linear_solver/linear_solver.h"
-#include "ortools/linear_solver/xpress_interface.h"
 #include "ortools/xpress/environment.h"
 #define XPRS_NAMELENGTH 1028
 
@@ -243,8 +255,7 @@ void buildLargeLp(MPSolver& solver, int numVars) {
   MPObjective* obj = solver.MutableObjective();
   obj->SetMaximization();
   for (int i = 0; i < numVars; ++i) {
-    MPVariable* x = solver.MakeNumVar(-(i * i) % 21,
-                                      (i * i) % 55,
+    MPVariable* x = solver.MakeNumVar(-(i * i) % 21, (i * i) % 55,
                                       "x_" + std::to_string(i));
     obj->SetCoefficient(x, (i * i) % 23);
     int min = -50;
@@ -310,44 +321,6 @@ TEST_F(XpressFixtureMIP, isMIP) {
 
 TEST_F(XpressFixtureLP, isLP) {
   EXPECT_EQ(solver.IsMIP(), false);
-}
-
-// XPRESS -> MPSolver -> XPRESS
-TEST(XpressInterface, BasisConversion_XPRS_AT_LOWER) {
-  EXPECT_EQ(MPSolverToXpressBasisStatus(XpressToMPSolverBasisStatus(XPRS_AT_LOWER)), XPRS_AT_LOWER);
-}
-
-TEST(XpressInterface, BasisConversion_XPRS_BASIC) {
-  EXPECT_EQ(MPSolverToXpressBasisStatus(XpressToMPSolverBasisStatus(XPRS_BASIC)), XPRS_BASIC);
-}
-
-TEST(XpressInterface, BasisConversion_XPRS_AT_UPPER) {
-  EXPECT_EQ(MPSolverToXpressBasisStatus(XpressToMPSolverBasisStatus(XPRS_AT_UPPER)), XPRS_AT_UPPER);
-}
-
-TEST(XpressInterface, BasisConversion_XPRS_FREE_SUPER) {
-  EXPECT_EQ(MPSolverToXpressBasisStatus(XpressToMPSolverBasisStatus(XPRS_FREE_SUPER)), XPRS_FREE_SUPER);
-}
-
-// MPSolver -> XPRESS -> MPSolver
-TEST(XpressInterface, BasisConversion_MPSolver_FREE) {
-    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::FREE)), MPSolver::FREE);
-}
-
-TEST(XpressInterface, BasisConversion_MPSolver_AT_LOWER_BOUND) {
-    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::AT_LOWER_BOUND)), MPSolver::AT_LOWER_BOUND);
-}
-
-TEST(XpressInterface, BasisConversion_MPSolver_AT_UPPER_BOUND) {
-    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::AT_UPPER_BOUND)), MPSolver::AT_UPPER_BOUND);
-}
-
-TEST(XpressInterface, DISABLED_BasisConversion_MPSolver_FIXED_VALUE) {
-    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::FIXED_VALUE)), MPSolver::FIXED_VALUE);
-}
-
-TEST(XpressInterface, BasisConversion_MPSolver_BASIC) {
-    EXPECT_EQ(XpressToMPSolverBasisStatus(MPSolverToXpressBasisStatus(MPSolver::BASIC)), MPSolver::BASIC);
 }
 
 TEST_F(XpressFixtureLP, LpStartingBasis) {
@@ -760,8 +733,8 @@ TEST_F(XpressFixtureMIP, Write) {
 OBJSENSE  MAXIMIZE
 ROWS
  N  __OBJ___
- L  R1      
- L  R2      
+ L  R1
+ L  R2
 COLUMNS
     C1        __OBJ___  1
     C1        R1        3
@@ -1374,7 +1347,9 @@ TEST_F(XpressFixtureMIP, CallbackThrowsException) {
   EXPECT_NO_THROW(solver.Solve());
   std::string errors = testing::internal::GetCapturedStderr();
   // Test that StdErr contains the following error message
-  std::string expected_error = "Caught exception during user-defined call-back: This is a mocked exception in MyMPCallback";
+  std::string expected_error =
+      "Caught exception during user-defined call-back: This is a mocked "
+      "exception in MyMPCallback";
   ASSERT_NE(errors.find(expected_error), std::string::npos);
 }
 
@@ -1387,8 +1362,7 @@ int main(int argc, char** argv) {
   if (solver == nullptr) {
     LOG(ERROR) << "Xpress solver is not available";
     return EXIT_SUCCESS;
-  }
-  else{
+  } else {
     return RUN_ALL_TESTS();
   }
 }

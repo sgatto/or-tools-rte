@@ -1,3 +1,16 @@
+# Copyright 2010-2024 Google LLC
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 licenses(["restricted"])  # GPLv3
 
 exports_files(["LICENSE"])
@@ -145,21 +158,4 @@ filegroup(
     licenses = ["notice"],  # simple notice license for Lib/
     path = "Lib",
     visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "swigconfig",
-    outs = ["Source/Include/swigconfig.h"],
-    cmd = "cat <<EOF >$@\n" +
-          "#define HAVE_BOOL\n" +
-          "#define HAVE_PCRE\n" +
-          "#define HAVE_POPEN\n" +
-          "#define PACKAGE_BUGREPORT \"http://www.swig.org\"\n" +
-          "#define PACKAGE_VERSION \"4.1.1\"\n" +
-          "#define STDC_HEADERS\n" +
-          "#define SWIG_CXX \"bazel4lyfe\"\n" +
-          "#define SWIG_LIB \"external/swig/Lib\"\n" +
-          "#define SWIG_LIB_WIN_UNIX \"\"\n" +
-          "#define SWIG_PLATFORM \"bazel4lyfe\"\n" +
-          "EOF",
 )

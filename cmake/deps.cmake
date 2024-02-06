@@ -155,13 +155,6 @@ if(BUILD_TESTING)
   endif()
 endif()
 
-if (USE_SIRIUS)
-  if(POLICY CMP0074)
-	  cmake_policy(SET CMP0074 NEW)
-	endif()
-	find_package(sirius_solver CONFIG REQUIRED)
-endif(USE_SIRIUS)
-
 # Check language Dependencies
 if(BUILD_PYTHON)
   if(NOT BUILD_pybind11)
@@ -172,3 +165,12 @@ if(BUILD_PYTHON)
     find_package(pybind11_protobuf REQUIRED)
   endif()
 endif()
+
+#add SIRIUS
+if (USE_SIRIUS)
+  if(POLICY CMP0074)
+    cmake_policy(SET CMP0074 NEW)
+  endif()
+  find_package(sirius_solver CONFIG REQUIRED)
+endif(USE_SIRIUS)
+

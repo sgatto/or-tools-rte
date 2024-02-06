@@ -1,4 +1,4 @@
-# Copyright 2010-2022 Google LLC
+# Copyright 2010-2024 Google LLC
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -97,9 +97,15 @@ endif()
 set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 include(CTest)
 
-# By default only build the C++ library.
+# By default only build the C++ library which agregate all components.
 option(BUILD_CXX "Build C++ library" ON)
 message(STATUS "Build C++ library: ${BUILD_CXX}")
+
+# If we don't build ortools we could build the GLOP standalone project
+if(NOT BUILD_CXX)
+  OPTION(BUILD_GLOP "Build GLOP standalone" ON)
+  message(STATUS "Build standalone Glop: ${BUILD_GLOP}")
+endif()
 
 option(BUILD_PYTHON "Build Python Library" OFF)
 message(STATUS "Build Python: ${BUILD_PYTHON}")
@@ -127,9 +133,6 @@ message(STATUS "Build LP Parser: ${BUILD_LP_PARSER}")
 ## MathOpt
 CMAKE_DEPENDENT_OPTION(BUILD_MATH_OPT "Build the MATH_OPT" ON "BUILD_CXX" OFF)
 message(STATUS "Build MathOpt: ${BUILD_MATH_OPT}")
-
-CMAKE_DEPENDENT_OPTION(BUILD_GLOP "Build GLOP standalone" ON "NOT BUILD_CXX" OFF)
-message(STATUS "Build standalone Glop: ${BUILD_GLOP}")
 
 ## Samples
 option(BUILD_SAMPLES "Build samples" ON)
@@ -184,6 +187,10 @@ CMAKE_DEPENDENT_OPTION(BUILD_Protobuf "Build the Protobuf dependency Library" OF
   "NOT BUILD_DEPS" ON)
 message(STATUS "Build protobuf: ${BUILD_Protobuf}")
 
+CMAKE_DEPENDENT_OPTION(BUILD_Eigen3 "Build the eigen3 dependency Library" OFF
+  "NOT BUILD_DEPS" ON)
+message(STATUS "Build eigen3: ${BUILD_Eigen3}")
+
 if(BUILD_LP_PARSER)
   CMAKE_DEPENDENT_OPTION(BUILD_re2 "Build the re2 dependency Library" OFF
     "NOT BUILD_DEPS" ON)
@@ -199,6 +206,11 @@ else()
 endif()
 
 # Optional third party solvers (enabled by default)
+## BOP
+# note OFF is currently not supported.
+CMAKE_DEPENDENT_OPTION(USE_BOP "Use the BOP solver" ON "BUILD_CXX" OFF)
+message(STATUS "BOP support: ${USE_BOP}")
+
 ## COIN-OR Solvers (Cbc, Clp)
 CMAKE_DEPENDENT_OPTION(USE_COINOR "Use the COIN-OR solver" ON "BUILD_CXX" OFF)
 message(STATUS "COIN-OR support: ${USE_COINOR}")
@@ -224,8 +236,13 @@ if(USE_COINOR)
   message(STATUS "Build Cbc: ${BUILD_Cbc}")
 endif()
 
+## GLOP
+# note OFF is currently not supported.
+CMAKE_DEPENDENT_OPTION(USE_GLOP "Use the GLOP solver" ON "BUILD_CXX" OFF)
+message(STATUS "GLOP support: ${USE_GLOP}")
+
 ## GLPK
-# Disable by default since it is GLPv3, user could enable it and release under GLPv3
+# Disable by default since it is GPLv3, user could enable it and release under GPLv3
 # see: https://www.apache.org/licenses/GPL-compatibility.html
 CMAKE_DEPENDENT_OPTION(USE_GLPK "Use the GLPK solver" OFF "BUILD_CXX" OFF)
 message(STATUS "GLPK support: ${USE_GLPK}")
@@ -238,6 +255,7 @@ endif()
 ## GUROBI
 # Since it is dynamicaly loaded upon use, OFF is currently not supported.
 CMAKE_DEPENDENT_OPTION(USE_GUROBI "Use the Gurobi solver" ON "BUILD_CXX" OFF)
+message(STATUS "Gurobi support: ${USE_GUROBI}")
 
 ## HiGHS
 # see: https://github.com/ERGO-Code/HiGHS
@@ -256,11 +274,6 @@ if(USE_PDLP)
   CMAKE_DEPENDENT_OPTION(BUILD_PDLP "Build the PDLP dependency Library" ON
     "NOT BUILD_DEPS" ON)
   message(STATUS "Build PDLP: ${BUILD_PDLP}")
-  if(BUILD_PDLP)
-    CMAKE_DEPENDENT_OPTION(BUILD_Eigen3 "Build the eigen3 dependency Library" OFF
-      "NOT BUILD_DEPS" ON)
-    message(STATUS "Build eigen3: ${BUILD_Eigen3}")
-  endif()
 endif()
 
 ## SCIP
@@ -284,6 +297,7 @@ message(STATUS "SIRIUS support: ${USE_SIRIUS}")
 ## XPRESS
 # Since it is dynamicaly loaded upon use, OFF is currently not supported.
 CMAKE_DEPENDENT_OPTION(USE_XPRESS "Use the Xpress solver" ON "BUILD_CXX" OFF)
+message(STATUS "Xpress support: ${USE_XPRESS}")
 
 # Language specific options
 if(BUILD_CXX)
@@ -364,6 +378,10 @@ if(BUILD_PYTHON)
   CMAKE_DEPENDENT_OPTION(BUILD_pybind11_protobuf "Build the pybind11_protobuf dependency Library" OFF
     "NOT BUILD_DEPS" ON)
   message(STATUS "Python: Build pybind11_protobuf: ${BUILD_pybind11_protobuf}")
+
+  CMAKE_DEPENDENT_OPTION(BUILD_pybind11_abseil "Build the pybind11_abseil dependency Library" OFF
+    "NOT BUILD_DEPS" ON)
+  message(STATUS "Python: Build pybind11_abseil: ${BUILD_pybind11_abseil}")
 
   option(GENERATE_PYTHON_STUB "Generate Python stub file (.pyi)" ON)
   message(STATUS "Python: Generate stub file: ${GENERATE_PYTHON_STUB}")

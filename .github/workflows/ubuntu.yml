@@ -119,7 +119,7 @@ jobs:
           --target all install -j4
 
       - name: run tests not xpress
-        if: ${{ matrix.cmake.shared == 'ON' && ${{ matrix.cmake.python != 'ON' || matrix.cmake.python-version != "3.8" }} }}
+        if: ${{ matrix.cmake.shared == 'ON' && (matrix.cmake.python != 'ON' || matrix.cmake.python-version != "3.8" ) }}
         working-directory: ./build/
         run: >
           ctest

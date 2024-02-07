@@ -50,11 +50,8 @@ OrthogonalPackingInfeasibilityDetector::
                    num_trivial_conflicts_});
   stats.push_back({"OrthogonalPackingInfeasibilityDetector/conflicts_two_items",
                    num_conflicts_two_items_});
-<<<<<<< HEAD
-=======
   stats.push_back({"OrthogonalPackingInfeasibilityDetector/no_energy_conflict",
                    num_scheduling_possible_});
->>>>>>> sgattortools/main
 
   shared_stats_->AddStats(stats);
 }
@@ -226,8 +223,6 @@ std::vector<int> GetDffConflict(
   return result;
 }
 
-<<<<<<< HEAD
-=======
 // Tries a simple heuristic to find a solution for the Resource-Constrained
 // Project Scheduling Problem (RCPSP). The RCPSP can be mapped to a
 // 2d bin packing where one dimension (say, x) is chosen to represent the time,
@@ -316,7 +311,6 @@ bool FindHeuristicSchedulingSolution(
   return true;
 }
 
->>>>>>> sgattortools/main
 }  // namespace
 
 void OrthogonalPackingInfeasibilityDetector::GetAllCandidatesForKForDff2(
@@ -530,12 +524,6 @@ OrthogonalPackingInfeasibilityDetector::TestFeasibilityImpl(
 
   std::sort(index_by_decreasing_x_size_.begin(),
             index_by_decreasing_x_size_.end(),
-<<<<<<< HEAD
-            [&sizes_x](int a, int b) { return sizes_x[a] > sizes_x[b]; });
-  std::sort(index_by_decreasing_y_size_.begin(),
-            index_by_decreasing_y_size_.end(),
-            [&sizes_y](int a, int b) { return sizes_y[a] > sizes_y[b]; });
-=======
             [&sizes_x, &sizes_y](int a, int b) {
               // Break ties with y-size
               return std::tie(sizes_x[a], sizes_y[a]) >
@@ -547,7 +535,6 @@ OrthogonalPackingInfeasibilityDetector::TestFeasibilityImpl(
               return std::tie(sizes_y[a], sizes_x[a]) >
                      std::tie(sizes_y[b], sizes_x[b]);
             });
->>>>>>> sgattortools/main
 
   // First look for pairwise incompatible pairs.
   if (options.use_pairwise) {
@@ -641,8 +628,6 @@ OrthogonalPackingInfeasibilityDetector::TestFeasibilityImpl(
   }
 
   if (options.use_dff_f2) {
-<<<<<<< HEAD
-=======
     // Checking for conflicts using f_2 is expensive, so first try a quick
     // algorithm to check if there is no conflict to be found. See the comments
     // on top of FindHeuristicSchedulingSolution().
@@ -659,7 +644,6 @@ OrthogonalPackingInfeasibilityDetector::TestFeasibilityImpl(
       return result;
     }
 
->>>>>>> sgattortools/main
     // We only check for conflicts applying this DFF on heights and widths, but
     // not on both, which would be too expensive if done naively.
     auto conflict = CheckFeasibilityWithDualFunction2(

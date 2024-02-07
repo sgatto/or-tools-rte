@@ -728,7 +728,7 @@ TEST_F(XpressFixtureMIP, Write) {
   tmpBuffer << tmpFile.rdbuf();
   tmpFile.close();
   std::filesystem::remove_all(temporary_working_dir);
-
+  // clang-format off
   EXPECT_EQ(tmpBuffer.str(), R"(NAME          newProb
 OBJSENSE  MAXIMIZE
 ROWS
@@ -753,6 +753,7 @@ BOUNDS
  LO BND00001  C2        -1
 ENDATA
 )");
+// clang-format on
 }
 
 TEST_F(XpressFixtureLP, SetPrimalTolerance) {

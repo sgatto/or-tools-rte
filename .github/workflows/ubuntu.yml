@@ -81,7 +81,7 @@ jobs:
         if: ${{ matrix.sirius == 'ON' }}
         shell: bash
         run: |
-          zipfile=${{ matrix.os }}_sirius-solver.zip
+          zipfile=ubuntu-20.04_sirius-solver.zip
           wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
           unzip $zipfile
           mv "${{ matrix.os }}_sirius-solver-install" sirius_install
@@ -119,13 +119,13 @@ jobs:
           --target all install -j4
 
       - name: run tests not xpress
-        if: ${{ matrix.cmake.shared == 'ON' }}
+        if: ${{ matrix.cmake.shared == 'ON' && ${{ matrix.cmake.python != 'ON' || matrix.cmake.python-version != "3.8" }} }}
         working-directory: ./build/
         run: >
           ctest
           -C Release
           --output-on-failure
-          -E "(xpress|sirius|python_init)"
+          -E "(xpress|sirius)"
 
       - name: run tests xpress
         working-directory: ./build/

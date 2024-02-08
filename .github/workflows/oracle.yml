@@ -3,11 +3,11 @@ name: OracleLinux
 on:
   push:
     branches:
-      - ZZZmain
-      - ZZZfeature/*
-      - ZZZmerge*
-      - ZZZfix/*
-      - ZZZrelease/*
+      - main
+      - feature/*
+      - merge*
+      - fix/*
+      - release/*
   release:
     types: [ created ]
 
@@ -95,9 +95,21 @@ jobs:
         with:
           cmake-version: '3.26.x'
 
-      - name: Checkout OR-Tools
+      - name: Checkout or-tools
+        uses: actions/checkout@v4
+        with:
+          repository: sgatto/or-tools
+          ref: "main"
+
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+        with:
+          path: "patch"
+
+      - name: Apply patch
         run: |
-          git clone $GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git -b ${BRANCH_NAME} .
+          cp -r patch/* .
+          python patch.py
 
       - name: Set-up Xpress with pip
         run: |

@@ -41,6 +41,14 @@ jobs:
     steps:
       - name: Checkout or-tools
         uses: actions/checkout@v4
+        with:
+          repository: sgatto/or-tools
+          ref: "main"
+
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+        with:
+          path: "patch"
 
       - name: Swig install
         run: |

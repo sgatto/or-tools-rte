@@ -173,5 +173,3 @@ if(BUILD_PYTHON)
     find_package(pybind11_protobuf REQUIRED)
   endif()
 endif()
-
-

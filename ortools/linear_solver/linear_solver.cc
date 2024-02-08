@@ -555,7 +555,6 @@ bool MPSolver::SupportsProblemType(OptimizationProblemType problem_type) {
   if (problem_type == SIRIUS_MIXED_INTEGER_PROGRAMMING) return true;
   if (problem_type == SIRIUS_LINEAR_PROGRAMMING) return true;
 #endif
-
   if (problem_type == XPRESS_MIXED_INTEGER_PROGRAMMING ||
       problem_type == XPRESS_LINEAR_PROGRAMMING) {
     return XpressIsCorrectlyInstalled();

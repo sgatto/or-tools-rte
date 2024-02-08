@@ -145,6 +145,14 @@ if(USE_CPLEX)
   find_package(CPLEX REQUIRED)
 endif()
 
+#add SIRIUS
+if (USE_SIRIUS)
+  if(POLICY CMP0074)
+    cmake_policy(SET CMP0074 NEW)
+  endif()
+  find_package(sirius_solver CONFIG REQUIRED)
+endif(USE_SIRIUS)
+
 # CXX Test
 if(BUILD_TESTING)
   if(NOT BUILD_googletest)
@@ -166,11 +174,4 @@ if(BUILD_PYTHON)
   endif()
 endif()
 
-#add SIRIUS
-if (USE_SIRIUS)
-  if(POLICY CMP0074)
-    cmake_policy(SET CMP0074 NEW)
-  endif()
-  find_package(sirius_solver CONFIG REQUIRED)
-endif(USE_SIRIUS)
 

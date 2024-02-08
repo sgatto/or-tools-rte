@@ -101,7 +101,7 @@ jobs:
           zipfile=ubuntu-20.04_sirius-solver.zip
           wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
           unzip $zipfile
-          mv "${{ matrix.os }}_sirius-solver-install" sirius_install
+          mv "ubuntu-20.04_sirius-solver-install" sirius_install
           echo "LD_LIBRARY_PATH=$PWD/sirius_install/lib" >> $GITHUB_ENV
           echo "SIRIUS_CMAKE_DIR=$PWD/sirius_install/cmake" >> $GITHUB_ENV
 

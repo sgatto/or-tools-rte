@@ -3,11 +3,11 @@ name: Windows Java Dotnet
 on:
   push:
     branches:
-      - ZZZmain
-      - ZZZfeature/*
-      - ZZZmerge*
-      - ZZZfix/*
-      - ZZZrelease/*
+      - main
+      - feature/*
+      - merge*
+      - fix/*
+      - release/*
   release:
     types: [ created ]
 
@@ -26,16 +26,31 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout or-tools
+        uses: actions/checkout@v4
+        with:
+          repository: sgatto/or-tools
+          ref: "main"
+
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+        with:
+          path: "patch"
 
       - name: Setup .NET 6.0
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: 6.0.x
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.8"
+          python-version: "3.9"
+
+      - name: Apply patch
+        run: |
+          cp -r patch/* .
+          python patch.py
 
       - name: Install SWIG 4.1.1
         run: |

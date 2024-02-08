@@ -3,11 +3,11 @@ name: Windows-cpp
 on:
   push:
     branches:
-      - ZZZmain
-      - ZZZfeature/*
-      - ZZZmerge*
-      - ZZZfix/*
-      - ZZZrelease/*
+      - main
+      - feature/*
+      - merge*
+      - fix/*
+      - release/*
   release:
     types: [ created ]
 
@@ -30,12 +30,26 @@ jobs:
         os: [windows-latest]
         sirius-release-tag: [ antares-integration-v1.4 ]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout or-tools
+        uses: actions/checkout@v4
+        with:
+          repository: sgatto/or-tools
+          ref: "main"
+
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+        with:
+          path: "patch"
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.8"
+
+      - name: Apply patch
+        run: |
+          cp -r patch/* .
+          python patch.py
 
       - name: Set-up Xpress with pip
         shell: bash

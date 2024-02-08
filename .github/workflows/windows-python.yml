@@ -3,11 +3,11 @@ name: Windows-python
 on:
   push:
     branches:
-      - ZZZmain
-      - ZZZfeature/*
-      - ZZZmerge*
-      - ZZZfix/*
-      - ZZZrelease/*
+      - main
+      - feature/*
+      - merge*
+      - fix/*
+      - release/*
   release:
     types: [ created ]
 
@@ -33,14 +33,29 @@ jobs:
           { version: "3.11", dir: Python311 },
         ]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout or-tools
+        uses: actions/checkout@v4
+        with:
+          repository: sgatto/or-tools
+          ref: "main"
+
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+        with:
+          path: "patch"
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python.version }}
+
       - name: Install python3
         run: python3 -m pip install --user mypy-protobuf absl-py setuptools wheel numpy pandas
+
+      - name: Apply patch
+        run: |
+          cp -r patch/* .
+          python patch.py
 
       - name: Install SWIG 4.1.1
         run: |

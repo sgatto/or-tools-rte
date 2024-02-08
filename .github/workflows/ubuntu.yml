@@ -50,14 +50,23 @@ jobs:
         with:
           path: "patch"
 
-      - name: Swig install
-        run: |
-          sudo apt install -y swig
-          swig -version
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.cmake.python-version }}
+
+      - name: Apply patch
+        run: |
+          cp -r patch/* .
+          python patch.py
+          
+
+
+
+      - name: Swig install
+        run: |
+          sudo apt install -y swig
+          swig -version
       - name: Update Path
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: install python packages

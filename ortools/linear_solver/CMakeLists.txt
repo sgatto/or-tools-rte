@@ -77,6 +77,7 @@ if (BUILD_CXX_EXAMPLES)
   elseif (UNIX)
     set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}:$ORIGIN:$ORIGIN/../lib:$ORIGIN")
   endif ()
+
   add_executable(test_xprs_interface xpress_interface_test.cc)
   target_compile_features(test_xprs_interface PRIVATE cxx_std_17)
   target_link_libraries(test_xprs_interface PRIVATE ortools::ortools GTest::gtest_main)

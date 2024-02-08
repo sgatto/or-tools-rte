@@ -143,12 +143,12 @@ jobs:
       - name: run tests not xpress
         run: |
           cd build
-          ctest -C Release --output-on-failure  -E "(xpress|sirius)"
+          ctest -C Release --output-on-failure  -E "(_xpress|sirius)"
 
       - name: run tests xpress
         run: |
           cd build
-          ctest -V -C Release --output-on-failure  -R "xpress"
+          ctest -V -C Release --output-on-failure  -R "_xpress"
 
       - name: run test sirius
         if: ${{ matrix.sirius == 'ON' }}

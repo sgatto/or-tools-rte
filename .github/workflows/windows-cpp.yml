@@ -85,14 +85,14 @@ jobs:
         run: >
           ctest -C Release 
           --output-on-failure 
-          -E "xpress"
+          -E "(_xpress|_sirius)"
 
       - name: Tests xpress
         working-directory: ./build/
         run: |
           $env:XPRESSDIR
           Get-ChildItem -Path $env:XPRESSDIR
-          ctest -V -C Release --output-on-failure -R "xpress"
+          ctest -V -C Release --output-on-failure -R "_xpress"
 
       - name: Tests sirius
         working-directory: ./build/

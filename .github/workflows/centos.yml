@@ -122,12 +122,12 @@ jobs:
         if: ${{ matrix.shared == 'ON' }}
         run: |
           cd build
-          ctest -C Release --output-on-failure  -E "xpress"
+          ctest -C Release --output-on-failure  -E "_xpress"
 
       - name: run tests xpress
         run: |
           cd build
-          ctest -V -C Release --output-on-failure  -R "xpress"
+          ctest -V -C Release --output-on-failure  -R "_xpress"
 
       - name: run tests sirius
         run: |

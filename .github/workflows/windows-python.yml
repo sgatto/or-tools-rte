@@ -91,7 +91,7 @@ jobs:
         run: >
           ctest -C Release 
           --output-on-failure 
-          -E "xpress"
+          -E "_xpress"
 
       - name: Check xpress installation
         shell: bash
@@ -110,7 +110,7 @@ jobs:
         run: |
           $env:XPRESSDIR
           Get-ChildItem -Path $env:XPRESSDIR
-          ctest -V -C Release --output-on-failure -R "xpress"
+          ctest -V -C Release --output-on-failure -R "_xpress"
 
       - name: set name variables
         id: names

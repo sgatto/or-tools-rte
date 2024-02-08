@@ -125,7 +125,7 @@ jobs:
           ctest
           -C Release
           --output-on-failure
-          -E "(xpress|sirius)"
+          -E "(_xpress|_sirius)"
 
       - name: run tests xpress
         working-directory: ./build/
@@ -134,7 +134,7 @@ jobs:
           -V 
           -C Release 
           --output-on-failure 
-          -R "xpress"
+          -R "_xpress" 
 
       - name: run tests sirius
         working-directory: ./build/

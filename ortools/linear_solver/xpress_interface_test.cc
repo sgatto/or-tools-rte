@@ -728,13 +728,14 @@ TEST_F(XpressFixtureMIP, Write) {
   tmpBuffer << tmpFile.rdbuf();
   tmpFile.close();
   std::filesystem::remove_all(temporary_working_dir);
-  EXPECT_EQ(tmpBuffer.str(), std::string(R"(NAME          newProb
+
+  EXPECT_EQ(tmpBuffer.str(), R"(NAME          newProb
 OBJSENSE  MAXIMIZE
 ROWS
  N  __OBJ___
- L  R1)")+"      \n"+
-" L  R2"+"      \n"+
-std::string(R"(COLUMNS
+ L  R1
+ L  R2
+COLUMNS
     C1        __OBJ___  1
     C1        R1        3
     C2        __OBJ___  2
@@ -751,7 +752,7 @@ BOUNDS
  UP BND00001  C2        5.147593849384714
  LO BND00001  C2        -1
 ENDATA
-)"));
+)");
 }
 
 TEST_F(XpressFixtureLP, SetPrimalTolerance) {

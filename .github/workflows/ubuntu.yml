@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest"]
+        os: ["ubuntu-20.04"]
         cmake: [
           {shared: OFF, java: OFF, dotnet: OFF, python: OFF, python-version: "3.8",  publish-cxx-or: ON},
           {shared: ON,  java: ON,  dotnet: ON,  python: OFF, python-version: "3.8",  publish-cxx-or: ON},
@@ -59,9 +59,13 @@ jobs:
         run: |
           cp -r patch/* .
           python patch.py
-          
 
-
+      - name: Install GCC11
+        shell: bash
+        run:  |
+          sudo apt update
+          sudo apt install gcc-11 g++-11
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 110 --slave /usr/bin/g++ g++ /usr/bin/g++-11 --slave /usr/bin/gcov gcov /usr/bin/gcov-11
 
       - name: Swig install
         run: |
@@ -98,10 +102,10 @@ jobs:
         if: ${{ matrix.sirius == 'ON' }}
         shell: bash
         run: |
-          zipfile=ubuntu-20.04_sirius-solver.zip
+          zipfile=${{ matrix.os }}_sirius-solver.zip
           wget https://github.com/rte-france/sirius-solver/releases/download/${{ env.SIRIUS_RELEASE_TAG }}/$zipfile
           unzip $zipfile
-          mv "ubuntu-20.04_sirius-solver-install" sirius_install
+          mv "${{ matrix.os }}_sirius-solver-install" sirius_install
           echo "LD_LIBRARY_PATH=$PWD/sirius_install/lib" >> $GITHUB_ENV
           echo "SIRIUS_CMAKE_DIR=$PWD/sirius_install/cmake" >> $GITHUB_ENV
 

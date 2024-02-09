@@ -27,10 +27,10 @@ jobs:
       fail-fast: false
       matrix:
         python: [
-          { version: "3.8", dir: Python308 },
           { version: "3.9", dir: Python309 },
           { version: "3.10", dir: Python310 },
           { version: "3.11", dir: Python311 },
+          { version: "3.12", dir: Python312 },
         ]
     steps:
       - name: Checkout or-tools
@@ -93,7 +93,6 @@ jobs:
           -DBUILD_CXX_SAMPLES=OFF
           -DBUILD_PYTHON=ON
           -DBUILD_SAMPLES=OFF
-          -DBUILD_FLATZINC=OFF
 
       - name: Build
         run: >
@@ -109,23 +108,9 @@ jobs:
           --output-on-failure 
           -E "_xpress"
 
-      - name: Check xpress installation
-        shell: bash
-        run: |
-          echo "ls -l $XPRESSDIR"
-          ls -l $XPRESSDIR
-          echo "ls -l $XPRESSDIR/bin"
-          ls -l $XPRESSDIR/bin
-          echo "ls -l $XPRESSDIR/lib"
-          ls -l $XPRESSDIR/lib
-          echo $XPAUTH_PATH
-          cat $XPAUTH_PATH
-
       - name: Tests xpress
         working-directory: ./build/
         run: |
-          $env:XPRESSDIR
-          Get-ChildItem -Path $env:XPRESSDIR
           ctest -V -C Release --output-on-failure -R "_xpress"
 
       - name: set name variables

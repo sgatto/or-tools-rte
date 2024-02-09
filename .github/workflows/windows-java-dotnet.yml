@@ -48,6 +48,7 @@ jobs:
           python-version: "3.9"
 
       - name: Apply patch
+        shell: bash
         run: |
           cp -r patch/* .
           python patch.py

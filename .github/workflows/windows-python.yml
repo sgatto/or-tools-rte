@@ -53,6 +53,7 @@ jobs:
         run: python3 -m pip install --user mypy-protobuf absl-py setuptools wheel numpy pandas
 
       - name: Apply patch
+        shell: bash
         run: |
           cp -r patch/* .
           python patch.py

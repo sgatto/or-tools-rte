@@ -47,6 +47,7 @@ jobs:
           python-version: "3.8"
 
       - name: Apply patch
+        shell: bash
         run: |
           cp -r patch/* .
           python patch.py

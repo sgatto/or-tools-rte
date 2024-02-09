@@ -69,16 +69,13 @@ jobs:
         with:
           cmake-version: '3.22.x'
 
-      - name: Checkout or-tools
-        uses: actions/checkout@v4
-        with:
-          repository: sgatto/or-tools
-          ref: "main"
+      - name: Checkout OR-Tools
+        run: |
+          git clone $GITHUB_SERVER_URL/sgatto/or-tools.git -b main .
 
       - name: Checkout this repository
-        uses: actions/checkout@v4
-        with:
-          path: "patch"
+        run: |
+          git clone $GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git -b ${BRANCH_NAME} "patch"
 
       - name: Apply patch
         run: |

@@ -109,7 +109,7 @@ jobs:
       - name: Apply patch
         run: |
           cp -r patch/* .
-          python patch.py
+          python3 patch.py
 
       - name: Set-up Xpress with pip
         run: |

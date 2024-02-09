@@ -129,17 +129,17 @@ namespace operations_research {
     }
   }
 
-  TEST(SiriusInterface, isMIP) {
+  TEST(TestSiriusInterface, isMIP) {
     UNITTEST_INIT_MIP();
     EXPECT_EQ(solver.IsMIP(), true);
   }
 
-  TEST(SiriusInterface, isLP) {
+  TEST(TestSiriusInterface, isLP) {
     UNITTEST_INIT_LP();
     EXPECT_EQ(solver.IsMIP(), false);
   }
 
-  TEST(SiriusInterface, NumVariables) {
+  TEST(TestSiriusInterface, NumVariables) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -151,7 +151,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getNumVariables(), 502);
   }
 
-  TEST(SiriusInterface, VariablesName) {
+  TEST(TestSiriusInterface, VariablesName) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -164,7 +164,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getVariableName(1), secondVar);
   }
 
-  TEST(SiriusInterface, NumConstraints) {
+  TEST(TestSiriusInterface, NumConstraints) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(100.0, 100.0);
     solver.MakeRowConstraint(-solver.infinity(), 13.1);
@@ -173,7 +173,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getNumConstraints(), 3);
   }
 
-  TEST(SiriusInterface, ConstraintsName) {
+  TEST(TestSiriusInterface, ConstraintsName) {
     UNITTEST_INIT_MIP();
 
     std::string phi("Phi");
@@ -185,7 +185,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getConstraintName(1), otherCnt);
   }
   
-  TEST(SiriusInterface, Reset) {
+  TEST(TestSiriusInterface, Reset) {
     UNITTEST_INIT_MIP();
     solver.MakeBoolVar("x1");
     solver.MakeBoolVar("x2");
@@ -198,7 +198,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getNumVariables(), 0);
   }
 
-  TEST(SiriusInterface, MakeIntVar) {
+  TEST(TestSiriusInterface, MakeIntVar) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -208,7 +208,7 @@ namespace operations_research {
     _unittest_verify_var(&getter, x, SRS_INTEGER_VAR, lb, ub);
   }
 
-  TEST(SiriusInterface, MakeNumVar) {
+  TEST(TestSiriusInterface, MakeNumVar) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -218,7 +218,7 @@ namespace operations_research {
     _unittest_verify_var(&getter, x, SRS_CONTINUOUS_VAR, lb, ub);
   }
 
-  TEST(SiriusInterface, MakeBoolVar) {
+  TEST(TestSiriusInterface, MakeBoolVar) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -227,7 +227,7 @@ namespace operations_research {
     _unittest_verify_var(&getter, x, SRS_INTEGER_VAR, 0, 1);
   }
 
-  TEST(SiriusInterface, MakeIntVarArray) {
+  TEST(TestSiriusInterface, MakeIntVarArray) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -247,7 +247,7 @@ namespace operations_research {
     }
   }
 
-  TEST(SiriusInterface, MakeNumVarArray) {
+  TEST(TestSiriusInterface, MakeNumVarArray) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -268,7 +268,7 @@ namespace operations_research {
     }
   }
 
-  TEST(SiriusInterface, MakeBoolVarArray) {
+  TEST(TestSiriusInterface, MakeBoolVarArray) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -281,7 +281,7 @@ namespace operations_research {
     }
   }
 
-  TEST(SiriusInterface, SetVariableBounds) {
+  TEST(TestSiriusInterface, SetVariableBounds) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -301,7 +301,7 @@ namespace operations_research {
     _unittest_verify_var(&getter, x2, SRS_CONTINUOUS_VAR, lb2, ub2);
   }
 
-   TEST(SiriusInterface, DISABLED_SetVariableInteger) {
+   TEST(TestSiriusInterface, DISABLED_SetVariableInteger) {
     // Here we test a badly definied behaviour
     // depending on the sirius version the sirius-workflow breaks at:
     // either the call of x->SetInteger(false) like the test suggest
@@ -316,7 +316,7 @@ namespace operations_research {
     EXPECT_THROW(x->SetInteger(false), std::logic_error);
   }
 
-  TEST(SiriusInterface, ConstraintL) {
+  TEST(TestSiriusInterface, ConstraintL) {
     UNITTEST_INIT_MIP();
     double lb = -solver.infinity(), ub = 10.;
     MPConstraint* c = solver.MakeRowConstraint(lb, ub);
@@ -324,14 +324,14 @@ namespace operations_research {
     _unittest_verify_constraint(&getter, c, SRS_LESSER_THAN, lb, ub);
   }
 
-  TEST(SiriusInterface, ConstraintR) {
+  TEST(TestSiriusInterface, ConstraintR) {
     UNITTEST_INIT_MIP();
     double lb = -2, ub = -1;
     solver.MakeRowConstraint(lb, ub);
     EXPECT_THROW(solver.Solve(), std::logic_error);
   }
 
-  TEST(SiriusInterface, ConstraintG) {
+  TEST(TestSiriusInterface, ConstraintG) {
     UNITTEST_INIT_MIP();
     double lb = 8.1, ub = solver.infinity();
     MPConstraint* c = solver.MakeRowConstraint(lb, ub);
@@ -339,7 +339,7 @@ namespace operations_research {
     _unittest_verify_constraint(&getter, c, SRS_GREATER_THAN, lb, ub);
   }
 
-  TEST(SiriusInterface, ConstraintE) {
+  TEST(TestSiriusInterface, ConstraintE) {
     UNITTEST_INIT_MIP();
     double lb = 18947.3, ub = lb;
     MPConstraint* c = solver.MakeRowConstraint(lb, ub);
@@ -347,7 +347,7 @@ namespace operations_research {
     _unittest_verify_constraint(&getter, c, SRS_EQUAL, lb, ub);
   }
 
-  TEST(SiriusInterface, SetConstraintBoundsL) {
+  TEST(TestSiriusInterface, SetConstraintBoundsL) {
     UNITTEST_INIT_MIP();
     double lb = 18947.3, ub = lb;
     MPConstraint* c = solver.MakeRowConstraint(lb, ub);
@@ -359,7 +359,7 @@ namespace operations_research {
     _unittest_verify_constraint(&getter, c, SRS_LESSER_THAN, lb, ub);
   }
 
-  TEST(SiriusInterface, SetConstraintBoundsG) {
+  TEST(TestSiriusInterface, SetConstraintBoundsG) {
     UNITTEST_INIT_MIP();
     double lb = 18947.3, ub = lb;
     MPConstraint* c = solver.MakeRowConstraint(lb, ub);
@@ -371,7 +371,7 @@ namespace operations_research {
     _unittest_verify_constraint(&getter, c, SRS_GREATER_THAN, lb, ub);
   }
 
-  TEST(SiriusInterface, SetConstraintBoundsE) {
+  TEST(TestSiriusInterface, SetConstraintBoundsE) {
     UNITTEST_INIT_MIP();
     double lb = -1, ub = solver.infinity();
     MPConstraint* c = solver.MakeRowConstraint(lb, ub);
@@ -383,7 +383,7 @@ namespace operations_research {
     _unittest_verify_constraint(&getter, c, SRS_EQUAL, lb, ub);
   }
 
-  TEST(SiriusInterface, DISABLED_ConstraintCoef) {
+  TEST(TestSiriusInterface, DISABLED_ConstraintCoef) {
     UNITTEST_INIT_MIP();
     MPVariable* x1 = solver.MakeBoolVar("x1");
     MPVariable* x2 = solver.MakeBoolVar("x2");
@@ -413,7 +413,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getConstraintCoef(c2->index(), x2->index()), c22);
   }
 
-  TEST(SiriusInterface, DISABLED_ClearConstraint) {
+  TEST(TestSiriusInterface, DISABLED_ClearConstraint) {
     UNITTEST_INIT_MIP();
     MPVariable* x1 = solver.MakeBoolVar("x1");
     MPVariable* x2 = solver.MakeBoolVar("x2");
@@ -440,7 +440,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getConstraintCoef(c2->index(), x2->index()), 0);
   }
 
-  TEST(SiriusInterface, ObjectiveCoef) {
+  TEST(TestSiriusInterface, ObjectiveCoef) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -456,7 +456,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getObjectiveCoef(x->index()), coef);
   }
 
-  TEST(SiriusInterface, DISABLED_ObjectiveOffset) {
+  TEST(TestSiriusInterface, DISABLED_ObjectiveOffset) {
     // ObjectiveOffset not implemented for sirius_interface
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
@@ -473,7 +473,7 @@ namespace operations_research {
     // EXPECT_EQ(getter.getObjectiveOffset(), offset);
   }
 
-  TEST(SiriusInterface, ObjectiveOffset) {
+  TEST(TestSiriusInterface, ObjectiveOffset) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -483,7 +483,7 @@ namespace operations_research {
     EXPECT_THROW(obj->SetOffset(offset), std::logic_error);
   }
 
-  TEST(SiriusInterface, ClearObjective) {
+  TEST(TestSiriusInterface, ClearObjective) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -498,7 +498,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getObjectiveCoef(x->index()), 0);
   }
 
-  TEST(SiriusInterface, ObjectiveSense) {
+  TEST(TestSiriusInterface, ObjectiveSense) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -511,7 +511,7 @@ namespace operations_research {
     EXPECT_EQ(getter.getObjectiveSense(), true);
   }
 
-  TEST(SiriusInterface, interations) {
+  TEST(TestSiriusInterface, interations) {
     UNITTEST_INIT_LP();
     int nc = 100, nv = 100;
     std::vector<MPConstraint*> cs(nc);
@@ -530,7 +530,7 @@ namespace operations_research {
     EXPECT_GT(solver.iterations(), 0);
   }
 
-  TEST(SiriusInterface, DISABLED_nodes) {
+  TEST(TestSiriusInterface, DISABLED_nodes) {
     // The problem seems to be incorrectly returned as infeasible
     UNITTEST_INIT_MIP();
     int nc = 100, nv = 100;
@@ -552,12 +552,12 @@ namespace operations_research {
     EXPECT_GT(solver.nodes(), 0);
   }
 
-  TEST(SiriusInterface, SolverVersion) {
+  TEST(TestSiriusInterface, SolverVersion) {
     UNITTEST_INIT_MIP();
     EXPECT_GE(solver.SolverVersion().size(), 36);
   }
 
-  TEST(SiriusInterface, DISABLED_Write) {
+  TEST(TestSiriusInterface, DISABLED_Write) {
     // SRSwritempsprob has different implementations on the metrix branch
     UNITTEST_INIT_MIP();
     MPVariable* x1 = solver.MakeIntVar(-1.2, 9.3, "x1");
@@ -606,7 +606,7 @@ ENDATA
 )");
   }
 
-  TEST(SiriusInterface, DISABLED_SetPrimalTolerance) {
+  TEST(TestSiriusInterface, DISABLED_SetPrimalTolerance) {
     // SetPrimalTolerance not implemented for sirius_interface
     UNITTEST_INIT_LP();
     MPConstraint* c =  solver.MakeRowConstraint(-solver.infinity(), 0.5);
@@ -623,7 +623,7 @@ ENDATA
   }
 
 
-  TEST(SiriusInterface, SetPrimalTolerance) {
+  TEST(TestSiriusInterface, SetPrimalTolerance) {
     UNITTEST_INIT_LP();
     MPConstraint* c =  solver.MakeRowConstraint(-solver.infinity(), 0.5);
     MPVariable* x = solver.MakeNumVar(0, 1, "x");
@@ -637,7 +637,7 @@ ENDATA
     solver.Solve(params);
   }
 
-  TEST(SiriusInterface, DISABLED_SetDualTolerance) {
+  TEST(TestSiriusInterface, DISABLED_SetDualTolerance) {
     // SetDualTolerance not implemented for sirius_interface
     UNITTEST_INIT_LP();
     MPConstraint* c =  solver.MakeRowConstraint(-solver.infinity(), 0.5);
@@ -653,7 +653,7 @@ ENDATA
     // EXPECT_EQ(getter.getDualTolerance(), tol) << "Not available";
   }
 
-  TEST(SiriusInterface, SetDualTolerance) {
+  TEST(TestSiriusInterface, SetDualTolerance) {
     UNITTEST_INIT_LP();
     MPConstraint* c =  solver.MakeRowConstraint(-solver.infinity(), 0.5);
     MPVariable* x = solver.MakeNumVar(0, 1, "x");
@@ -667,7 +667,7 @@ ENDATA
     solver.Solve(params);
   }
 
-  TEST(SiriusInterface, SetPresolveMode) {
+  TEST(TestSiriusInterface, SetPresolveMode) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -680,7 +680,7 @@ ENDATA
     EXPECT_EQ(getter.getPresolve(), 1);
   }
 
-  TEST(SiriusInterface, DISABLED_SetLpAlgorithm) {
+  TEST(TestSiriusInterface, DISABLED_SetLpAlgorithm) {
     // SetLpAlgorithm not implemented for sirius_interface
     UNITTEST_INIT_LP();
     MPConstraint* c =  solver.MakeRowConstraint(-solver.infinity(), 0.5);
@@ -701,7 +701,7 @@ ENDATA
     // EXPECT_EQ(getter.getLpAlgorithm(), 4);
   }
 
-  TEST(SiriusInterface, SetLpAlgorithm) {
+  TEST(TestSiriusInterface, SetLpAlgorithm) {
     UNITTEST_INIT_LP();
     MPConstraint* c =  solver.MakeRowConstraint(-solver.infinity(), 0.5);
     MPVariable* x = solver.MakeNumVar(0, 1, "x");
@@ -718,7 +718,7 @@ ENDATA
     solver.Solve(params);
   }
 
-  TEST(SiriusInterface, DISABLED_SetScaling) {
+  TEST(TestSiriusInterface, DISABLED_SetScaling) {
     // SetScaling not implemented for sirius_interface
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
@@ -732,7 +732,7 @@ ENDATA
     EXPECT_EQ(getter.getScaling(), 1);
   }
 
-  TEST(SiriusInterface, SetScaling) {
+  TEST(TestSiriusInterface, SetScaling) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -743,7 +743,7 @@ ENDATA
     solver.Solve(params);
   }
 
-  TEST(SiriusInterface, DISABLED_SetRelativeMipGap) {
+  TEST(TestSiriusInterface, DISABLED_SetRelativeMipGap) {
     // SetRelativeMipGap not implemented for sirius_interface
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
@@ -755,7 +755,7 @@ ENDATA
     EXPECT_EQ(getter.getRelativeMipGap(), relativeMipGap);
   }
 
-  TEST(SiriusInterface, SetRelativeMipGap) {
+  TEST(TestSiriusInterface, SetRelativeMipGap) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
 
@@ -765,7 +765,7 @@ ENDATA
     solver.Solve(params);
   }
 
-  TEST(SiriusInterface, setVarBoundType) {
+  TEST(TestSiriusInterface, setVarBoundType) {
     UNITTEST_INIT_MIP();
     solver.MakeRowConstraint(-solver.infinity(), 0);
     double infty = solver.infinity();
@@ -793,7 +793,7 @@ ENDATA
       EXPECT_EQ(getter.getVarBoundType(i), varBoundTypes[i]);
   }
 
-  TEST(SiriusInterface, DISABLED_SolveMIP) {
+  TEST(TestSiriusInterface, DISABLED_SolveMIP) {
     // The problem seems to incorrectly be returned as infeasible
     UNITTEST_INIT_MIP();
 
@@ -828,7 +828,7 @@ ENDATA
     EXPECT_EQ(y->solution_value(), 2);
   }
 
-  TEST(SiriusInterface, DISABLED_SolveLP) {
+  TEST(TestSiriusInterface, DISABLED_SolveLP) {
     // Sign of dual values seems to be off
     // This sign problem occurs with presolve on and presolve off
     UNITTEST_INIT_LP();

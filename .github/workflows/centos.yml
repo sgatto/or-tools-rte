@@ -3,11 +3,11 @@ name: CentOS
 on:
   push:
     branches:
-      - ZZZmain
-      - ZZZfeature/*
-      - ZZZmerge*
-      - ZZZfix/*
-      - ZZZrelease/*
+      - main
+      - feature/*
+      - merge*
+      - fix/*
+      - release/*
   release:
     types: [ created ]
 

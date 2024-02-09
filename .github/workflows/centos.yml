@@ -69,9 +69,21 @@ jobs:
         with:
           cmake-version: '3.22.x'
 
-      - name: Checkout OR-Tools
+      - name: Checkout or-tools
+        uses: actions/checkout@v4
+        with:
+          repository: sgatto/or-tools
+          ref: "main"
+
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+        with:
+          path: "patch"
+
+      - name: Apply patch
         run: |
-          git clone $GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git -b ${BRANCH_NAME} .
+          cp -r patch/* .
+          python3 patch.py
 
       - name: Set-up Xpress from wheel
         run: |
@@ -84,6 +96,7 @@ jobs:
           echo "XPRESSDIR=$XPRESS_DIR" >> $GITHUB_ENV
           echo "XPAUTH_PATH=$XPRESS_DIR/license/community-xpauth.xpr" >> $GITHUB_ENV
           ln -s $XPRESS_DIR/lib/libxprs.so.42 $XPRESS_DIR/lib/libxprs.so
+
 
       - name: Download Sirius
         if : ${{ matrix.sirius == 'ON' }}

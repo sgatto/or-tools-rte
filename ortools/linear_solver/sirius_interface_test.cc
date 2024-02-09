@@ -1,6 +1,9 @@
-#include "ortools/linear_solver/sirius_interface.cc"
+//#include "ortools/linear_solver/sirius_interface.cc"
+#include "ortools/linear_solver/linear_solver.h"
 #include "gtest/gtest.h"
-
+extern "C" {
+#include "srs_api.h"
+}
 #include <fstream>
 
 namespace operations_research {

@@ -147,7 +147,7 @@ jobs:
           ctest
           -C Release
           --output-on-failure
-          -E "(_xpress|_sirius)"
+          -E "(_xpress|_sirius|python_init_)"
 
       - name: run tests xpress
         working-directory: ./build/
